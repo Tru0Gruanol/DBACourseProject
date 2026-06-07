@@ -20,6 +20,10 @@
           <el-icon><School /></el-icon>
           <span>班级管理</span>
         </el-menu-item>
+        <el-menu-item index="/teachers">
+          <el-icon><Avatar /></el-icon>
+          <span>教师管理</span>
+        </el-menu-item>
         <el-menu-item index="/fee">
           <el-icon><Money /></el-icon>
           <span>收费管理</span>
@@ -46,7 +50,7 @@
 </template>
 
 <script setup>
-import { User, Notebook, School, Money, Calendar } from '@element-plus/icons-vue'
+import { User, Notebook, School, Avatar, Money, Calendar } from '@element-plus/icons-vue'
 </script>
 
 <style scoped>

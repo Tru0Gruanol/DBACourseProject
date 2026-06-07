@@ -23,7 +23,7 @@ public class AccountController {
 
     @PostMapping("/pay")
     public String makePayment(@RequestBody Map<String, Object> payload) {
-        Integer studentId = (Integer) payload.get("studentId");
+        Integer studentId = Integer.parseInt(payload.get("studentId").toString());
         String classCode = (String) payload.get("classCode");
         BigDecimal amount = new BigDecimal(payload.get("amount").toString());
         return accountService.makePayment(studentId, classCode, amount);

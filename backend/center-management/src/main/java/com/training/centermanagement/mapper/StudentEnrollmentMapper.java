@@ -18,4 +18,7 @@ public interface StudentEnrollmentMapper {
     // 新增：获取学生选课的所有班级代码（用于课表）
     @Select("SELECT class_code FROM student_enrollments WHERE student_id = #{studentId}")
     List<String> getClassCodesByStudentId(Integer studentId);
+
+    @Delete("DELETE FROM student_enrollments WHERE student_id = #{studentId} AND class_code = #{classCode}")
+    int deleteEnrollment(@Param("studentId") Integer studentId, @Param("classCode") String classCode);
 }

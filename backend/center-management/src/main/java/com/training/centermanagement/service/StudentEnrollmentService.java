@@ -77,4 +77,20 @@ public class StudentEnrollmentService {
 
         return "报名成功！多表事务已提交。已交款：" + payment + " 元。";
     }
+
+    @Transactional(rollbackFor = Exception.class)
+    public String cancelEnrollment(Integer studentId, String classCode) {
+        StudentEnrollment enrollment = studentEnrollmentMapper.selectByStudentAndClass(studentId, classCode);
+        if (enrollment == null) {
+            return "退课失败：该学生未报名此班级！";
+        }
+
+        int deleteRows = studentEnrollmentMapper.deleteEnrollment(studentId, classCode);
+        if (deleteRows == 0) {
+            return "退课失败：操作异常！";
+        }
+
+        classesMapper.decrementEnrolledCount(classCode);
+        return "退课成功！学生 " + studentId + " 已从班级 " + classCode + " 退出。";
+    }
 }

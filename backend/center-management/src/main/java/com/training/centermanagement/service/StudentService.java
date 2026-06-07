@@ -27,4 +27,20 @@ public class StudentService {
     public List<Student> getAllStudents() {
         return studentMapper.getAllStudents();
     }
+
+    public String updateStudent(Student student) {
+        Student existing = studentMapper.selectStudentById(student.getStudentId());
+        if (existing == null) {
+            return "更新失败：学生ID " + student.getStudentId() + " 不存在！";
+        }
+        return studentMapper.updateStudent(student) > 0 ? "更新成功" : "更新失败";
+    }
+
+    public String deleteStudent(Integer studentId) {
+        Student existing = studentMapper.selectStudentById(studentId);
+        if (existing == null) {
+            return "删除失败：学生ID " + studentId + " 不存在！";
+        }
+        return studentMapper.deleteStudent(studentId) > 0 ? "删除成功" : "删除失败";
+    }
 }

@@ -34,4 +34,14 @@ public class ClassesController {
     public List<Classes> getClassesBySubjectId(@RequestParam Integer subjectId) {
         return classesService.getClassesBySubjectId(subjectId);
     }
+
+    @PutMapping
+    public String updateClass(@RequestBody Classes classes) {
+        return classesService.updateClass(classes);
+    }
+
+    @DeleteMapping("/{classCode}")
+    public String deleteClass(@PathVariable String classCode) {
+        return classesService.deleteClass(classCode);
+    }
 }

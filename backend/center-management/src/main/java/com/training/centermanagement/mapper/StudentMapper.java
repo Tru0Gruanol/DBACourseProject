@@ -1,9 +1,7 @@
 package com.training.centermanagement.mapper;
 
 import com.training.centermanagement.entity.Student;
-import org.apache.ibatis.annotations.Insert;
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.*;
 import java.util.List;
 
 @Mapper
@@ -18,4 +16,10 @@ public interface StudentMapper {
 
     @Insert("INSERT INTO students(student_id, student_name, registration_time) VALUES(#{studentId}, #{studentName}, #{registrationTime})")
     int insertStudent(Student student);
+
+    @Update("UPDATE students SET student_name = #{studentName}, registration_time = #{registrationTime} WHERE student_id = #{studentId}")
+    int updateStudent(Student student);
+
+    @Delete("DELETE FROM students WHERE student_id = #{studentId}")
+    int deleteStudent(Integer studentId);
 }

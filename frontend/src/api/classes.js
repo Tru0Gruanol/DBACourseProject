@@ -15,3 +15,11 @@ export function getClassesBySubject(subjectId) {
 export function addClass(data) {
   return request.post('/classes', data)
 }
+
+export function updateClass(data) {
+  return request.put('/classes', data)
+}
+
+export function deleteClass(classCode) {
+  return request.delete(`/classes/${classCode}`)
+}

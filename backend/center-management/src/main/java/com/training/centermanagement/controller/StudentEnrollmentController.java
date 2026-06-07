@@ -16,10 +16,15 @@ public class StudentEnrollmentController {
 
     @PostMapping("/submit")
     public String submitEnrollment(@RequestBody Map<String, Object> payload) {
-        Integer studentId = (Integer) payload.get("studentId");
+        Integer studentId = Integer.parseInt(payload.get("studentId").toString());
         String classCode = (String) payload.get("classCode");
         BigDecimal payment = new BigDecimal(payload.get("payment").toString());
 
         return enrollmentService.processEnrollment(studentId, classCode, payment);
+    }
+
+    @DeleteMapping("/cancel")
+    public String cancelEnrollment(@RequestParam Integer studentId, @RequestParam String classCode) {
+        return enrollmentService.cancelEnrollment(studentId, classCode);
     }
 }

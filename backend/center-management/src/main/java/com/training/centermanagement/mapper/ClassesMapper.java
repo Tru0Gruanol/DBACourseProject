@@ -43,4 +43,16 @@ public interface ClassesMapper {
     // 统计某科目下有多少班级（用于删除科目前的校验）
     @Select("SELECT COUNT(*) FROM classes WHERE subject_id = #{subjectId}")
     int countBySubjectId(Integer subjectId);
+
+    @Update("UPDATE classes SET subject_id = #{subjectId}, teacher_id = #{teacherId}, " +
+            "term = #{term}, period = #{period}, fee = #{fee}, location = #{location}, " +
+            "capacity = #{capacity}, enrolled_count = #{enrolledCount}, " +
+            "teacher_remuneration = #{teacherRemuneration} WHERE class_code = #{classCode}")
+    int updateClass(Classes classes);
+
+    @Delete("DELETE FROM classes WHERE class_code = #{classCode}")
+    int deleteClass(String classCode);
+
+    @Update("UPDATE classes SET enrolled_count = enrolled_count - 1 WHERE class_code = #{classCode} AND enrolled_count > 0")
+    int decrementEnrolledCount(String classCode);
 }

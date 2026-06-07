@@ -29,8 +29,9 @@ public interface AccountMapper {
                                    @Param("classCode") String classCode,
                                    @Param("amount") BigDecimal amount);
 
-    // 新增：查询所有欠费学生（联表）
-    @Select("SELECT s.student_id, s.student_name, c.class_code, c.fee, e.amount_paid, " +
+    // 新增：查询所有欠费学生（联表），使用驼峰别名匹配前端 prop
+    @Select("SELECT s.student_id AS studentId, s.student_name AS studentName, " +
+            "c.class_code AS classCode, c.fee AS totalFee, e.amount_paid AS totalPaid, " +
             "(c.fee - e.amount_paid) AS debt " +
             "FROM student_enrollments e " +
             "JOIN students s ON e.student_id = s.student_id " +

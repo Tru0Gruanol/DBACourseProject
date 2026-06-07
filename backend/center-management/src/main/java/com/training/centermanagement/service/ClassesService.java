@@ -44,6 +44,26 @@ public class ClassesService {
         return rows > 0 ? "排课成功" : "排课失败";
     }
 
+    public String updateClass(Classes classes) {
+        if (classesMapper.getClassByCode(classes.getClassCode()) == null) {
+            return "更新失败：班级代号 " + classes.getClassCode() + " 不存在！";
+        }
+        if (teacherMapper.countByTeacherId(classes.getTeacherId()) == 0) {
+            return "更新失败：教师ID " + classes.getTeacherId() + " 不存在！";
+        }
+        if (subjectMapper.countBySubjectId(classes.getSubjectId()) == 0) {
+            return "更新失败：科目ID " + classes.getSubjectId() + " 不存在！";
+        }
+        return classesMapper.updateClass(classes) > 0 ? "更新成功" : "更新失败";
+    }
+
+    public String deleteClass(String classCode) {
+        if (classesMapper.getClassByCode(classCode) == null) {
+            return "删除失败：班级代号 " + classCode + " 不存在！";
+        }
+        return classesMapper.deleteClass(classCode) > 0 ? "删除成功" : "删除失败";
+    }
+
     // 新增：根据科目ID查询班级
     public List<Classes> getClassesBySubjectId(Integer subjectId) {
         return classesMapper.getClassesBySubjectId(subjectId);

@@ -1,8 +1,7 @@
 package com.training.centermanagement.mapper;
 
 import com.training.centermanagement.entity.Teacher;
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.*;
 import java.util.List;
 
 @Mapper
@@ -11,7 +10,21 @@ public interface TeacherMapper {
     @Select("SELECT teacher_id AS teacherId, teacher_name AS teacherName, teacher_level AS teacherLevel, specialty FROM teachers")
     List<Teacher> getAllTeachers();
 
-    // 检查教师是否存在
+    @Select("SELECT teacher_id AS teacherId, teacher_name AS teacherName, teacher_level AS teacherLevel, specialty FROM teachers WHERE teacher_id = #{teacherId}")
+    Teacher getTeacherById(Integer teacherId);
+
     @Select("SELECT COUNT(*) FROM teachers WHERE teacher_id = #{teacherId}")
     int countByTeacherId(Integer teacherId);
+
+    @Insert("INSERT INTO teachers(teacher_id, teacher_name, teacher_level, specialty) VALUES(#{teacherId}, #{teacherName}, #{teacherLevel}, #{specialty})")
+    int insertTeacher(Teacher teacher);
+
+    @Update("UPDATE teachers SET teacher_name = #{teacherName}, teacher_level = #{teacherLevel}, specialty = #{specialty} WHERE teacher_id = #{teacherId}")
+    int updateTeacher(Teacher teacher);
+
+    @Delete("DELETE FROM teachers WHERE teacher_id = #{teacherId}")
+    int deleteTeacher(Integer teacherId);
+
+    @Select("SELECT COUNT(*) FROM classes WHERE teacher_id = #{teacherId}")
+    int countClassesByTeacherId(Integer teacherId);
 }

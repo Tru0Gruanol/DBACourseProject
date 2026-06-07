@@ -67,9 +67,9 @@ Day03 中科目模块仅有查询功能。今天在 `SubjectService.java` 中补
 
 ![按科目查询班级](./Images/day04图2.png)
 
-### 1.5 学生表字段补充
+### 1.5 学生缴费统计方案
 
-为满足课程设计数据要求中"学生信息含交款额"的需求，在 `students` 表中补充了 `total_paid` 字段（实际交款统计通过 `student_enrollments.amount_paid` 和 `accounts` 流水表实现，此处为冗余便于快速查询）。
+课程设计数据要求中"学生信息含交款额"。经分析，缴费总额应通过 `student_enrollments.amount_paid`（选课桥接表累计已缴）和 `accounts` 流水表联合查询实现——这是正确的规范化设计：payment 在 enrollment 层面追踪，避免在 students 表中引入冗余字段导致数据不一致。因此未在 students 表添加 total_paid 冗余列。
 
 ### 1.6 完整接口测试
 

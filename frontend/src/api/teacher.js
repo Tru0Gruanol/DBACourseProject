@@ -3,3 +3,19 @@ import request from '@/utils/request'
 export function getTeachers() {
   return request.get('/teachers')
 }
+
+export function getTeacherById(id) {
+  return request.get(`/teachers/${id}`)
+}
+
+export function addTeacher(data) {
+  return request.post('/teachers', data)
+}
+
+export function updateTeacher(data) {
+  return request.put('/teachers', data)
+}
+
+export function deleteTeacher(id) {
+  return request.delete(`/teachers/${id}`)
+}
