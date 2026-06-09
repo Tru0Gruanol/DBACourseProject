@@ -120,11 +120,14 @@ const handleSubmit = async () => {
     }
     const result = await submitEnrollment(payload)
     ElMessage.success(result)
+    // 只清空学生相关字段，保留科目选择和班级列表以方便连续报名
     form.studentId = ''
     form.classCode = ''
     form.payment = 0
-    selectedSubjectId.value = ''
-    classList.value = []
+    // 刷新班级列表以显示最新名额
+    if (selectedSubjectId.value) {
+      classList.value = await getClassesBySubject(selectedSubjectId.value)
+    }
   } catch (error) {}
 }
 

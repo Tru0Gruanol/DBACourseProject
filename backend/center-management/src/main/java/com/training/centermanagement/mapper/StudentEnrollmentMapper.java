@@ -21,4 +21,12 @@ public interface StudentEnrollmentMapper {
 
     @Delete("DELETE FROM student_enrollments WHERE student_id = #{studentId} AND class_code = #{classCode}")
     int deleteEnrollment(@Param("studentId") Integer studentId, @Param("classCode") String classCode);
+
+    // 统计某班级下的报名人数（用于删除班级前的校验）
+    @Select("SELECT COUNT(*) FROM student_enrollments WHERE class_code = #{classCode}")
+    int countByClassCode(String classCode);
+
+    // 统计某学生的选课数量（用于删除学生前的校验）
+    @Select("SELECT COUNT(*) FROM student_enrollments WHERE student_id = #{studentId}")
+    int countByStudentId(Integer studentId);
 }

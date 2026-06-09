@@ -33,17 +33,17 @@
 | 技术/工具 | 类别 | 版本 | 作用 |
 |-----------|------|------|------|
 | Java | 后端语言 | JDK 17 (Temurin) | 编写业务逻辑：学生报名、收费计算、满员判断等 |
-| Spring Boot | 后端框架 | 3.x | 快速搭建后端服务器，提供 REST API |
-| MyBatis | ORM 框架 | 3.x | 后端与 MySQL 数据交互，注解 + Mapper 混合 |
-| Maven | 构建工具 | 3.x | 依赖管理与项目构建 |
-| Vue.js | 前端框架 | 3.x (Composition API) | 构建用户操作界面 |
-| Vite | 前端构建 | 5.x | Vue 项目开发服务器与生产打包 |
-| Vue Router | 前端路由 | 4.x | 单页面应用路由管理 |
+| Spring Boot | 后端框架 | 3+ | 快速搭建后端服务器，提供 REST API |
+| MyBatis | ORM 框架 | 3+| 后端与 MySQL 数据交互，注解 + Mapper 混合 |
+| Maven | 构建工具 | 3+| 依赖管理与项目构建 |
+| Vue.js | 前端框架 | 3+ (Composition API) | 构建用户操作界面 |
+| Vite | 前端构建 | 5+ | Vue 项目开发服务器与生产打包 |
+| Vue Router | 前端路由 | 4+ | 单页面应用路由管理 |
 | Axios | HTTP 库 | 最新 | 前后端数据通信 |
 | Element Plus | UI 组件库 | 最新 | 表格、表单、弹窗、导航等 UI 组件 |
 | Node.js | 前端运行环境 | v24.16.0 | Vue 项目运行与构建依赖 |
 | npm | 包管理器 | 11.13.0 | 前端依赖安装与管理 |
-| MySQL | 数据库 | 8.x | 持久化存储全部业务数据 |
+| MySQL | 数据库 | 8+| 持久化存储全部业务数据 |
 | MySQL Workbench | 数据库工具 | — | 可视化管理、建表、调试 SQL |
 | IntelliJ IDEA | 后端 IDE | — | Spring Boot 项目开发与调试 |
 | VS Code | 前端编辑器 | — | Vue 项目开发 |

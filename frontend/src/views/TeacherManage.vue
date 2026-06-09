@@ -103,7 +103,9 @@ async function saveTeacher() {
     }
     dialogVisible.value = false
     await loadTeachers()
-  } catch (e) {}
+  } catch (e) {
+    // 错误消息已由 request.js 拦截器统一展示
+  }
 }
 
 async function handleDelete(teacherId) {

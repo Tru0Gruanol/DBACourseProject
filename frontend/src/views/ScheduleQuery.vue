@@ -21,7 +21,11 @@
               {{ getSubjectName(row.subjectId) }}
             </template>
           </el-table-column>
-          <el-table-column label="教师ID" width="100" prop="teacherId" />
+          <el-table-column label="任课教师" width="100">
+            <template #default="{ row }">
+              {{ getTeacherName(row.teacherId) }}
+            </template>
+          </el-table-column>
           <el-table-column prop="term" label="期次" width="140" />
           <el-table-column prop="period" label="上课时间" min-width="200" />
           <el-table-column prop="location" label="教室" width="140" />
@@ -61,6 +65,7 @@
 import { ref, onMounted } from 'vue'
 import { getStudentSchedule, getTeacherSchedule } from '@/api/schedule'
 import { getSubjects } from '@/api/subject'
+import { getTeachers } from '@/api/teacher'
 import { ElMessage } from 'element-plus'
 
 const activeTab = ref('student')
@@ -109,16 +114,25 @@ async function queryTeacherSchedule() {
   teacherLoading.value = false
 }
 
-// ======== 科目名称映射 ========
+// ======== 科目名称映射 + 教师姓名映射 ========
 const subjects = ref([])
+const teachers = ref([])
+
 onMounted(async () => {
   try {
-    subjects.value = await getSubjects()
+    const [subList, teaList] = await Promise.all([getSubjects(), getTeachers()])
+    subjects.value = subList
+    teachers.value = teaList
   } catch (e) {}
 })
 
 function getSubjectName(subjectId) {
   const s = subjects.value.find(s => s.subjectId === subjectId)
   return s ? s.subjectName : subjectId
+}
+
+function getTeacherName(teacherId) {
+  const t = teachers.value.find(t => t.teacherId === teacherId)
+  return t ? t.teacherName : '教师ID:' + teacherId
 }
 </script>

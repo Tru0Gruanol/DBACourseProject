@@ -38,4 +38,8 @@ public interface AccountMapper {
             "JOIN classes c ON e.class_code = c.class_code " +
             "WHERE e.amount_paid < c.fee")
     List<Map<String, Object>> getDebtors();
+
+    // 统计某学生的账目流水数（用于删除学生前的校验）
+    @Select("SELECT COUNT(*) FROM accounts WHERE student_id = #{studentId}")
+    int countByStudentId(Integer studentId);
 }

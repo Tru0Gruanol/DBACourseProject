@@ -142,8 +142,12 @@ const payForm = reactive({
 })
 
 async function handlePay() {
-  if (!payForm.studentId || !payForm.classCode || payForm.amount <= 0) {
-    ElMessage.warning('请完整填写缴费信息')
+  if (!payForm.studentId || !payForm.classCode) {
+    ElMessage.warning('请填写学生ID和班级代号')
+    return
+  }
+  if (!payForm.amount || payForm.amount <= 0) {
+    ElMessage.warning('缴费金额必须大于0')
     return
   }
   try {

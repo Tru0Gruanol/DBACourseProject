@@ -4,6 +4,7 @@ import com.training.centermanagement.entity.Classes;
 import com.training.centermanagement.mapper.ClassesMapper;
 import com.training.centermanagement.mapper.TeacherMapper;
 import com.training.centermanagement.mapper.SubjectMapper;
+import com.training.centermanagement.mapper.StudentEnrollmentMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +19,8 @@ public class ClassesService {
     private TeacherMapper teacherMapper;
     @Autowired
     private SubjectMapper subjectMapper;
+    @Autowired
+    private StudentEnrollmentMapper studentEnrollmentMapper;
 
     public List<Classes> getAllClasses() {
         return classesMapper.getAllClasses();
@@ -45,7 +48,8 @@ public class ClassesService {
     }
 
     public String updateClass(Classes classes) {
-        if (classesMapper.getClassByCode(classes.getClassCode()) == null) {
+        Classes existing = classesMapper.getClassByCode(classes.getClassCode());
+        if (existing == null) {
             return "更新失败：班级代号 " + classes.getClassCode() + " 不存在！";
         }
         if (teacherMapper.countByTeacherId(classes.getTeacherId()) == 0) {
@@ -54,12 +58,17 @@ public class ClassesService {
         if (subjectMapper.countBySubjectId(classes.getSubjectId()) == 0) {
             return "更新失败：科目ID " + classes.getSubjectId() + " 不存在！";
         }
+        // enrolledCount 只能由报名/退课操作修改，不允许通过编辑班级直接覆盖
+        classes.setEnrolledCount(existing.getEnrolledCount());
         return classesMapper.updateClass(classes) > 0 ? "更新成功" : "更新失败";
     }
 
     public String deleteClass(String classCode) {
         if (classesMapper.getClassByCode(classCode) == null) {
             return "删除失败：班级代号 " + classCode + " 不存在！";
+        }
+        if (studentEnrollmentMapper.countByClassCode(classCode) > 0) {
+            return "删除失败：该班级下还有学生报名记录，请先处理报名关系！";
         }
         return classesMapper.deleteClass(classCode) > 0 ? "删除成功" : "删除失败";
     }

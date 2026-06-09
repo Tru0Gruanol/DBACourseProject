@@ -64,7 +64,8 @@
           <el-input-number v-model="form.capacity" :min="1" style="width:100%" />
         </el-form-item>
         <el-form-item label="已报名人数">
-          <el-input-number v-model="form.enrolledCount" :min="0" style="width:100%" />
+          <el-input-number v-model="form.enrolledCount" :min="0" :disabled="isEdit" style="width:100%" />
+          <span v-if="isEdit" style="color:#909399;font-size:12px;margin-left:8px">（由系统自动维护，不可手动修改）</span>
         </el-form-item>
         <el-form-item label="教师报酬">
           <el-input-number v-model="form.teacherRemuneration" :min="0" :precision="2" style="width:100%" />

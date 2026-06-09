@@ -69,15 +69,19 @@ async function saveSubject() {
     ElMessage.warning('科目编号和名称不能为空')
     return
   }
-  if (isEdit.value) {
-    await updateSubject(currentSubject.value)
-    ElMessage.success('修改成功')
-  } else {
-    await addSubject(currentSubject.value)
-    ElMessage.success('新增成功')
+  try {
+    if (isEdit.value) {
+      await updateSubject(currentSubject.value)
+      ElMessage.success('修改成功')
+    } else {
+      await addSubject(currentSubject.value)
+      ElMessage.success('新增成功')
+    }
+    dialogVisible.value = false
+    loadSubjects()
+  } catch (e) {
+    // 错误消息已由 request.js 拦截器统一展示，此处仅阻止后续代码执行
   }
-  dialogVisible.value = false
-  loadSubjects()
 }
 
 async function handleDelete(id) {
