@@ -13,4 +13,5 @@ public class StudentEnrollment {
     private String classCode;
     private Date enrollmentTime;
     private BigDecimal amountPaid;
+    private String status;  // 'active' | 'cancelled'
 }

@@ -33,15 +33,15 @@ INSERT INTO students (student_id, student_name, registration_time) VALUES
 (1004, '刘雨桐', '2026-03-18 16:45:00'),
 (1005, '陈子涵', '2026-04-01 11:00:00');
 
--- 插入选课报名
-INSERT INTO student_enrollments (student_id, class_code, enrollment_time, amount_paid) VALUES
-(1001, 'MATH-2026-02', '2026-01-15 10:30:00', 3200.00),
-(1001, 'WEIQI-2026-01', '2026-01-20 09:00:00', 2000.00),
-(1002, 'MATH-2026-03', '2026-02-18 15:20:00', 2800.00),
-(1002, 'CALL-2026-02', '2026-03-01 11:10:00', 1000.00),
-(1003, 'MATH-2026-02', '2026-03-12 14:00:00', 3200.00),
-(1004, 'SPEECH-2026-01', '2026-03-20 16:00:00', 2800.00),
-(1005, 'WEIQI-2026-02', '2026-04-05 09:30:00', 2000.00);
+-- 插入选课报名（status='active' 表示在读）
+INSERT INTO student_enrollments (student_id, class_code, enrollment_time, amount_paid, status) VALUES
+(1001, 'MATH-2026-02', '2026-01-15 10:30:00', 3200.00, 'active'),
+(1001, 'WEIQI-2026-01', '2026-01-20 09:00:00', 2000.00, 'active'),
+(1002, 'MATH-2026-03', '2026-02-18 15:20:00', 2800.00, 'active'),
+(1002, 'CALL-2026-02', '2026-03-01 11:10:00', 1000.00, 'active'),
+(1003, 'MATH-2026-02', '2026-03-12 14:00:00', 3200.00, 'active'),
+(1004, 'SPEECH-2026-01', '2026-03-20 16:00:00', 2800.00, 'active'),
+(1005, 'WEIQI-2026-02', '2026-04-05 09:30:00', 2000.00, 'active');
 
 -- 插入账目流水
 INSERT INTO accounts (account_date, class_code, student_id, subject_id, amount_paid) VALUES

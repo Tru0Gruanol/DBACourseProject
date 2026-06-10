@@ -27,4 +27,8 @@ public interface TeacherMapper {
 
     @Select("SELECT COUNT(*) FROM classes WHERE teacher_id = #{teacherId}")
     int countClassesByTeacherId(Integer teacherId);
+
+    // 根据特长关键词模糊匹配教师（用于班级管理中选择教师时过滤）
+    @Select("SELECT teacher_id AS teacherId, teacher_name AS teacherName, teacher_level AS teacherLevel, specialty FROM teachers WHERE specialty LIKE CONCAT('%',#{keyword},'%')")
+    List<Teacher> getTeachersBySpecialty(String keyword);
 }

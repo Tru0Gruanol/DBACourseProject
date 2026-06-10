@@ -61,7 +61,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { getSubjects } from '@/api/subject'
 import { getTeachers } from '@/api/teacher'
 import { getClassesBySubject } from '@/api/classes'
-import { submitEnrollment, cancelEnrollment } from '@/api/enrollment'
+import { submitEnrollment, cancelEnrollment, checkEnrollment } from '@/api/enrollment'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const subjects = ref([])
@@ -113,6 +113,17 @@ const handleSubmit = async () => {
     return
   }
   try {
+    // 检查是否为重新报名（之前退过该课程）
+    const checkResult = await checkEnrollment(Number(form.studentId), form.classCode)
+    if (checkResult.exists && checkResult.status === 'cancelled') {
+      const date = new Date(checkResult.enrollmentTime).toLocaleDateString('zh-CN')
+      await ElMessageBox.confirm(
+        `该学生已于 ${date} 退过此课程（班级：${form.classCode}），是否重新报名？`,
+        '重新报名确认',
+        { type: 'warning', confirmButtonText: '确认重新报名', cancelButtonText: '取消' }
+      )
+    }
+
     const payload = {
       studentId: Number(form.studentId),
       classCode: form.classCode,

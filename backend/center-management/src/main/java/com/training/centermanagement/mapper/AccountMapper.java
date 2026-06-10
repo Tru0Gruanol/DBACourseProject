@@ -29,17 +29,33 @@ public interface AccountMapper {
                                    @Param("classCode") String classCode,
                                    @Param("amount") BigDecimal amount);
 
-    // 新增：查询所有欠费学生（联表），使用驼峰别名匹配前端 prop
+    // 新增：查询所有欠费学生（联表），使用驼峰别名匹配前端 prop，只看在读报名
     @Select("SELECT s.student_id AS studentId, s.student_name AS studentName, " +
             "c.class_code AS classCode, c.fee AS totalFee, e.amount_paid AS totalPaid, " +
             "(c.fee - e.amount_paid) AS debt " +
             "FROM student_enrollments e " +
             "JOIN students s ON e.student_id = s.student_id " +
             "JOIN classes c ON e.class_code = c.class_code " +
-            "WHERE e.amount_paid < c.fee")
+            "WHERE e.amount_paid < c.fee AND e.status = 'active'")
     List<Map<String, Object>> getDebtors();
 
     // 统计某学生的账目流水数（用于删除学生前的校验）
     @Select("SELECT COUNT(*) FROM accounts WHERE student_id = #{studentId}")
     int countByStudentId(Integer studentId);
+
+    // 查询某学生+班级的累计缴费总额（用于退课前判断多缴/欠费）
+    @Select("SELECT COALESCE(SUM(amount_paid), 0) FROM accounts WHERE student_id = #{studentId} AND class_code = #{classCode}")
+    java.math.BigDecimal getTotalPaidByStudentAndClass(@Param("studentId") Integer studentId, @Param("classCode") String classCode);
+
+    // 删除某学生+某班级的所有账目流水
+    @Delete("DELETE FROM accounts WHERE student_id = #{studentId} AND class_code = #{classCode}")
+    int deleteByStudentAndClass(@Param("studentId") Integer studentId, @Param("classCode") String classCode);
+
+    // 删除某学生的所有账目流水（删除学生时清理FK）
+    @Delete("DELETE FROM accounts WHERE student_id = #{studentId}")
+    int deleteByStudentId(Integer studentId);
+
+    // 删除某班级的所有账目流水（删除班级时的安全网清理）
+    @Delete("DELETE FROM accounts WHERE class_code = #{classCode}")
+    int deleteByClassCode(String classCode);
 }

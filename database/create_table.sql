@@ -1,6 +1,14 @@
 create database if not exists tutoring_center;
 use tutoring_center;
 
+-- 按外键依赖顺序删除表（先删子表再删父表）
+DROP TABLE IF EXISTS accounts;
+DROP TABLE IF EXISTS student_enrollments;
+DROP TABLE IF EXISTS students;
+DROP TABLE IF EXISTS classes;
+DROP TABLE IF EXISTS subjects;
+DROP TABLE IF EXISTS teachers;
+
 -- 1. 教师信息表 (对应数据要求：教师号、教师名、教师等级、教师特长)
 
 CREATE TABLE teachers (
@@ -66,6 +74,7 @@ CREATE TABLE student_enrollments (
     class_code VARCHAR(20) NOT NULL COMMENT '复合主键，关联具体的班级代号',
     enrollment_time DATETIME NOT NULL COMMENT '该学生报名选修这门课/该班级的具体登记时间',
     amount_paid DECIMAL(10, 2) DEFAULT 0.00 COMMENT '该生针对该班级【目前已缴纳的学费总额】(用于与classes.fee对比，快速催缴欠费)',
+    status VARCHAR(20) NOT NULL DEFAULT 'active' COMMENT '报名状态：active-在读，cancelled-已退课',
     PRIMARY KEY (student_id, class_code),
     FOREIGN KEY (student_id) REFERENCES students(student_id),
     FOREIGN KEY (class_code) REFERENCES classes(class_code)

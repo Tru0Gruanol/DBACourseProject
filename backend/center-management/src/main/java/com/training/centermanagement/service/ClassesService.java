@@ -5,8 +5,10 @@ import com.training.centermanagement.mapper.ClassesMapper;
 import com.training.centermanagement.mapper.TeacherMapper;
 import com.training.centermanagement.mapper.SubjectMapper;
 import com.training.centermanagement.mapper.StudentEnrollmentMapper;
+import com.training.centermanagement.mapper.AccountMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -21,6 +23,8 @@ public class ClassesService {
     private SubjectMapper subjectMapper;
     @Autowired
     private StudentEnrollmentMapper studentEnrollmentMapper;
+    @Autowired
+    private AccountMapper accountMapper;
 
     public List<Classes> getAllClasses() {
         return classesMapper.getAllClasses();
@@ -63,13 +67,18 @@ public class ClassesService {
         return classesMapper.updateClass(classes) > 0 ? "更新成功" : "更新失败";
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public String deleteClass(String classCode) {
         if (classesMapper.getClassByCode(classCode) == null) {
             return "删除失败：班级代号 " + classCode + " 不存在！";
         }
+        // 检查是否有在读学生
         if (studentEnrollmentMapper.countByClassCode(classCode) > 0) {
-            return "删除失败：该班级下还有学生报名记录，请先处理报名关系！";
+            return "删除失败：该班级下还有在读学生，请先处理退课！";
         }
+        // 所有报名均已取消：清理流水 → 清理报名 → 删除班级
+        accountMapper.deleteByClassCode(classCode);
+        studentEnrollmentMapper.deleteByClassCode(classCode);
         return classesMapper.deleteClass(classCode) > 0 ? "删除成功" : "删除失败";
     }
 

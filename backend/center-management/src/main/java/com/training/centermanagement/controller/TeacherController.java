@@ -37,4 +37,9 @@ public class TeacherController {
     public String deleteTeacher(@PathVariable Integer teacherId) {
         return teacherService.deleteTeacher(teacherId);
     }
+
+    @GetMapping("/by-specialty")
+    public List<Teacher> getTeachersBySpecialty(@RequestParam String keyword) {
+        return teacherService.getTeachersBySpecialtyKeyword(keyword);
+    }
 }

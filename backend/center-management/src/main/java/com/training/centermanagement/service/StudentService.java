@@ -6,6 +6,7 @@ import com.training.centermanagement.mapper.StudentEnrollmentMapper;
 import com.training.centermanagement.mapper.AccountMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.Date;
 import java.util.List;
 
@@ -42,17 +43,19 @@ public class StudentService {
         return studentMapper.updateStudent(student) > 0 ? "更新成功" : "更新失败";
     }
 
+    @Transactional(rollbackFor = Exception.class)
     public String deleteStudent(Integer studentId) {
         Student existing = studentMapper.selectStudentById(studentId);
         if (existing == null) {
             return "删除失败：学生ID " + studentId + " 不存在！";
         }
+        // 检查是否有在读报名
         if (studentEnrollmentMapper.countByStudentId(studentId) > 0) {
-            return "删除失败：该学生还有选课报名记录，请先处理报名关系！";
+            return "删除失败：该学生还有未退课的报名记录，请先退课后再删除！";
         }
-        if (accountMapper.countByStudentId(studentId) > 0) {
-            return "删除失败：该学生还有账目流水记录，请先处理账目！";
-        }
+        // 所有报名均已取消：清理流水 → 清理报名 → 删除学生
+        accountMapper.deleteByStudentId(studentId);
+        studentEnrollmentMapper.deleteByStudentId(studentId);
         return studentMapper.deleteStudent(studentId) > 0 ? "删除成功" : "删除失败";
     }
 }

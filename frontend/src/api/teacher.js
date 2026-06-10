@@ -8,6 +8,10 @@ export function getTeacherById(id) {
   return request.get(`/teachers/${id}`)
 }
 
+export function getTeachersBySpecialty(keyword) {
+  return request.get('/teachers/by-specialty', { params: { keyword } })
+}
+
 export function addTeacher(data) {
   return request.post('/teachers', data)
 }

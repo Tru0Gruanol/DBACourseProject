@@ -39,13 +39,13 @@
           <el-input v-model="form.classCode" :disabled="isEdit" placeholder="如：MATH-2026-04" />
         </el-form-item>
         <el-form-item label="所属科目">
-          <el-select v-model="form.subjectId" placeholder="请选择科目" style="width:100%">
+          <el-select v-model="form.subjectId" placeholder="请选择科目" style="width:100%" @change="onSubjectChangeForTeacher">
             <el-option v-for="s in subjects" :key="s.subjectId" :label="s.subjectName" :value="s.subjectId" />
           </el-select>
         </el-form-item>
         <el-form-item label="任课教师">
           <el-select v-model="form.teacherId" placeholder="请选择教师" style="width:100%">
-            <el-option v-for="t in teachers" :key="t.teacherId" :label="`${t.teacherName}（${t.teacherLevel}）`" :value="t.teacherId" />
+            <el-option v-for="t in filteredTeachers" :key="t.teacherId" :label="`${t.teacherName}（${t.teacherLevel}）`" :value="t.teacherId" />
           </el-select>
         </el-form-item>
         <el-form-item label="期次">
@@ -83,12 +83,13 @@
 import { ref, reactive, onMounted } from 'vue'
 import { getClasses, addClass, updateClass, deleteClass } from '@/api/classes'
 import { getSubjects } from '@/api/subject'
-import { getTeachers } from '@/api/teacher'
+import { getTeachers, getTeachersBySpecialty } from '@/api/teacher'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 const classes = ref([])
 const subjects = ref([])
 const teachers = ref([])
+const filteredTeachers = ref([])
 const loading = ref(false)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
@@ -122,8 +123,29 @@ async function loadData() {
     classes.value = clsList
     subjects.value = subList
     teachers.value = teaList
+    filteredTeachers.value = teaList  // 初始显示全部教师
   } catch (e) {}
   loading.value = false
+}
+
+// 科目变更时过滤教师（按特长匹配）
+async function onSubjectChangeForTeacher(subjectId) {
+  if (!subjectId) {
+    filteredTeachers.value = teachers.value
+    form.teacherId = null
+    return
+  }
+  const subject = subjects.value.find(s => s.subjectId === subjectId)
+  if (!subject) {
+    filteredTeachers.value = teachers.value
+    return
+  }
+  try {
+    filteredTeachers.value = await getTeachersBySpecialty(subject.subjectName)
+  } catch (e) {
+    filteredTeachers.value = teachers.value
+  }
+  form.teacherId = null  // 切换科目时清空已选教师
 }
 
 function getSubjectName(subjectId) {

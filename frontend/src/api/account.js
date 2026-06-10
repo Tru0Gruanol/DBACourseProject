@@ -15,3 +15,15 @@ export function getInvoice(studentId, classCode) {
 export function getDebtors() {
   return request.get('/accounts/debtors')
 }
+
+export function refund(data) {
+  return request.post('/accounts/refund', data)
+}
+
+export function getTotalPaid(studentId, classCode) {
+  return request.get('/accounts/totalPaid', { params: { studentId, classCode } })
+}
+
+export function getStudentSummary(studentId) {
+  return request.get('/accounts/student-summary', { params: { studentId } })
+}

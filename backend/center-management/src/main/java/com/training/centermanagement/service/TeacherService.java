@@ -39,4 +39,9 @@ public class TeacherService {
         }
         return teacherMapper.deleteTeacher(teacherId) > 0 ? "删除成功" : "删除失败（ID可能不存在）";
     }
+
+    // 根据科目名称（特长关键词）模糊匹配教师
+    public List<Teacher> getTeachersBySpecialtyKeyword(String keyword) {
+        return teacherMapper.getTeachersBySpecialty(keyword);
+    }
 }
