@@ -6,43 +6,20 @@
         <h1>托管培训中心信息管理系统</h1>
       </div>
 
-      <el-tabs v-model="activeTab" class="login-tabs">
-        <!-- 账号登录：学生 / 教师通用，系统自动识别 -->
-        <el-tab-pane label="账号登录" name="account">
-          <el-form :model="accountForm" label-width="80px">
-            <el-form-item label="用户名">
-              <el-input v-model="accountForm.id" placeholder="请输入学号 / 工号" />
-            </el-form-item>
-            <el-form-item label="密码">
-              <el-input v-model="accountForm.password" type="password" placeholder="请输入密码" show-password
-                @keyup.enter="loginAsAccount" />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" :loading="accountLoading" @click="loginAsAccount" style="width:100%">
-                登录
-              </el-button>
-            </el-form-item>
-          </el-form>
-        </el-tab-pane>
-
-        <!-- 管理员登录 -->
-        <el-tab-pane label="管理员登录" name="admin">
-          <el-form :model="adminForm" label-width="80px">
-            <el-form-item label="用户名">
-              <el-input v-model="adminForm.username" placeholder="请输入管理员用户名" />
-            </el-form-item>
-            <el-form-item label="密码">
-              <el-input v-model="adminForm.password" type="password" placeholder="请输入管理员密码" show-password
-                @keyup.enter="loginAsAdmin" />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" :loading="adminLoading" @click="loginAsAdmin" style="width:100%">
-                登录
-              </el-button>
-            </el-form-item>
-          </el-form>
-        </el-tab-pane>
-      </el-tabs>
+      <el-form :model="form" label-width="80px">
+        <el-form-item label="用户名">
+          <el-input v-model="form.username" placeholder="请输入学号 / 工号 / 管理员名" />
+        </el-form-item>
+        <el-form-item label="密码">
+          <el-input v-model="form.password" type="password" placeholder="请输入密码" show-password
+            @keyup.enter="handleLogin" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="loading" @click="handleLogin" style="width:100%">
+            登录
+          </el-button>
+        </el-form-item>
+      </el-form>
     </div>
   </div>
 </template>
@@ -58,55 +35,44 @@ import { School } from '@element-plus/icons-vue'
 const router = useRouter()
 const auth = useAuthStore()
 
-const activeTab = ref('account')
+const form = reactive({ username: '', password: '' })
+const loading = ref(false)
 
-// ======== 账号登录（学生/教师自动识别） ========
-const accountForm = reactive({ id: '', password: '' })
-const accountLoading = ref(false)
-
-async function loginAsAccount() {
-  if (!accountForm.id || !accountForm.password) {
-    ElMessage.warning('请输入账号和密码')
+async function handleLogin() {
+  if (!form.username || !form.password) {
+    ElMessage.warning('请输入用户名和密码')
     return
   }
-  accountLoading.value = true
+  loading.value = true
   try {
     const result = await loginApi({
-      id: Number(accountForm.id),
-      password: accountForm.password,
+      username: form.username,
+      password: form.password,
     })
     if (result.success) {
       auth.login(result.role, result.userId, result.userName)
-      const label = result.role === 'student' ? '同学' : '老师'
+      const greetings = {
+        student: '同学',
+        teacher: '老师',
+        admin: '',
+      }
+      const label = greetings[result.role] || ''
       ElMessage.success(`欢迎回来，${result.userName}${label}！`)
-      router.push(result.role === 'teacher' ? '/schedule' : '/enrollment')
+
+      // 按角色跳转首页
+      const homeMap = {
+        admin: '/students',
+        teacher: '/schedule',
+        student: '/enrollment',
+      }
+      router.push(homeMap[result.role] || '/enrollment')
     } else {
       ElMessage.error(result.message || '登录失败')
     }
   } catch (e) {
     ElMessage.error('登录失败，请检查网络连接')
   }
-  accountLoading.value = false
-}
-
-// ======== 管理员登录 ========
-const adminForm = reactive({ username: '', password: '' })
-const adminLoading = ref(false)
-
-function loginAsAdmin() {
-  if (!adminForm.username || !adminForm.password) {
-    ElMessage.warning('请输入用户名和密码')
-    return
-  }
-  if (adminForm.username !== 'admin' || adminForm.password !== 'admin123') {
-    ElMessage.error('用户名或密码错误')
-    return
-  }
-  adminLoading.value = true
-  auth.login('admin', 'admin', '系统管理员')
-  ElMessage.success('欢迎回来，管理员！')
-  router.push('/students')
-  adminLoading.value = false
+  loading.value = false
 }
 </script>
 
@@ -138,8 +104,5 @@ function loginAsAdmin() {
   font-size: 13px;
   color: #909399;
   margin: 0;
-}
-.login-tabs {
-  margin-bottom: 8px;
 }
 </style>

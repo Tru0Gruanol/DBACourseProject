@@ -15,15 +15,14 @@ public class AuthController {
     private AuthService authService;
 
     /**
-     * 账号登录（自动识别学生/教师）
-     * Body: { id: number, password: string }
-     * 后端自动查学生表和教师表，无需前端传 role
+     * 统一登录（自动识别学生/教师/管理员）
+     * Body: { username: string, password: string }
      */
     @PostMapping("/login")
     public Map<String, Object> login(@RequestBody Map<String, Object> payload) {
-        Integer id = payload.get("id") != null ? Integer.parseInt(payload.get("id").toString()) : null;
+        String username = (String) payload.get("username");
         String password = (String) payload.get("password");
-        return authService.loginAuto(id, password);
+        return authService.loginAuto(username, password);
     }
 
     /**

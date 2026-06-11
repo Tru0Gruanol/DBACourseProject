@@ -12,8 +12,8 @@
 - **问题/需求描述**：Day06 的角色方案为纯前端 UI 分流，学生登录"任意姓名+学号"无身份校验，教师同理。用户要求升级为学号（教师号）+ 密码的认证体系，管理员由后端建档分配默认密码 `111111`，学生/教师端无自主注册入口。管理员登录凭据（admin/admin123）不得暴露在登录页上。
 - **核心解决思路**：
   - **数据库层**：`students` 和 `teachers` 表各加 `password VARCHAR(100) NOT NULL DEFAULT '111111'`。
-  - **后端**：新建 `AuthService`（统一登录 + 改密）和 `AuthController`（`POST /api/auth/login` + `PUT /api/auth/change-password`）。登录时后端自动查学生表再查教师表，根据匹配结果返回 `role`（student/teacher），前端无需传角色参数。管理员 `admin/admin123` 保持前端硬编码校验。
-  - **前端**：新建 `stores/auth.js`（Pinia + localStorage 持久化），`LoginView.vue` 合并学生/教师为「账号登录」标签（用户名 + 密码，后端自动识别角色），管理员独立标签页。`SidebarNav.vue` 侧边栏底部显示学号/教师号 + Lock 图标「修改密码」入口 + 改密对话框。`MainLayout.vue` 未登录时只渲染登录页（全屏无侧边栏），已登录恢复完整布局。
+  - **后端**：新建 `AuthService`（统一登录 + 改密）和 `AuthController`（`POST /api/auth/login` + `PUT /api/auth/change-password`）。`loginAuto` 接收 `String username`，先 `Integer.parseInt` 尝试解析为数字 → 查学生表 → 查教师表；解析失败则检查是否为 `admin/admin123` → 返回管理员角色。三种身份全部走后端验证，前端无需传角色参数，也不再有前端硬编码校验。
+  - **前端**：新建 `stores/auth.js`（Pinia + localStorage 持久化），`LoginView.vue` 最终合并为单一登录表单（用户名 + 密码，placeholder 提示"请输入学号 / 工号 / 管理员名"），无标签页。`SidebarNav.vue` 侧边栏底部显示学号/教师号 + Lock 图标「修改密码」入口 + 改密对话框。`MainLayout.vue` 未登录时只渲染登录页（全屏无侧边栏），已登录恢复完整布局。
 - **关键代码**：
 
 ```sql
@@ -23,18 +23,17 @@ ALTER TABLE teachers ADD COLUMN password VARCHAR(100) NOT NULL DEFAULT '111111';
 ```
 
 ```java
-// AuthService.loginAuto — 先查学生表再查教师表，自动识别角色
-Student student = studentMapper.login(id, password);
-if (student != null) {
-    result.put("role", "student");
-    result.put("userId", student.getStudentId());
-    result.put("userName", student.getStudentName());
-    return result;
-}
-Teacher teacher = teacherMapper.login(id, password);
-if (teacher != null) {
-    result.put("role", "teacher");
-    // ...
+// AuthService.loginAuto — 先解析数字查学生/教师表，再查管理员
+try {
+    Integer id = Integer.parseInt(username);
+    Student student = studentMapper.login(id, password);
+    if (student != null) { result.put("role", "student"); ... return result; }
+    Teacher teacher = teacherMapper.login(id, password);
+    if (teacher != null) { result.put("role", "teacher"); ... return result; }
+} catch (NumberFormatException e) {
+    if ("admin".equals(username) && "admin123".equals(password)) {
+        result.put("role", "admin"); ... return result;
+    }
 }
 ```
 
@@ -126,8 +125,8 @@ for (Teacher t : teachers) {
 - **Q2**：分析当前前端 UI 设计逻辑，判断是否需要登录页面方案。
   - **A2**：对照课设要求——登录功能不是硬性要求，但当前学生和管理员操作混在同一侧边栏不符合实际逻辑。建议采用方案 B（纯前端角色分离），~1 小时可完成。
 
-- **Q3**：学生/教师登录合并为一个「账号登录」，系统自动识别角色。
-  - **A3**：后端 `AuthService.loginAuto` 先查学生表再查教师表返回 `role`，前端只需一个标签页（用户名+密码），管理员独立标签。
+- **Q3**：学生/教师/管理员合并为同一个登录入口，系统自动识别角色。
+  - **A3**：后端 `AuthService.loginAuto` 改为接收字符串用户名，先 `Integer.parseInt` 查学生表/教师表，解析失败走管理员校验。前端最终合并为单一表单无标签页，placeholder 提示"请输入学号 / 工号 / 管理员名"。
 
 - **Q4**：学生端无法缴费。
   - **A4**：根因是 API 不返回 `arrears` 字段，`undefined > 0` 恒 false → 欠费误显「已结清」+ 补缴按钮不出现。修复：`loadPaymentSummary` 中注入计算字段 `arrears = fee - totalPaid`，补缴弹窗内置金额上限约束。

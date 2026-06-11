@@ -1,9 +1,9 @@
 import request from '@/utils/request'
 
 /**
- * 统一登录（学生/教师）
- * @param {Object} data - { role: 'student'|'teacher', id: number, password: string }
- * @returns {Promise} { success: boolean, userId: number, userName: string, message: string }
+ * 统一登录（学生/教师/管理员）
+ * @param {Object} data - { username: string, password: string }
+ * @returns {Promise} { success: boolean, role: string, userId: string, userName: string, message: string }
  */
 export function login(data) {
   return request.post('/auth/login', data)

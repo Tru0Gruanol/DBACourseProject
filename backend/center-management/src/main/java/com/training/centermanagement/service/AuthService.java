@@ -62,40 +62,53 @@ public class AuthService {
     }
 
     /**
-     * 自动识别角色登录（无需前端传 role，后端自动查学生表和教师表）
-     * @param id       学号或教师号
+     * 自动识别角色登录（学生/教师/管理员统一入口）
+     * @param username 学号、教师号或管理员名
      * @param password 密码
      * @return { success, userId, userName, role, message }
      */
-    public Map<String, Object> loginAuto(Integer id, String password) {
+    public Map<String, Object> loginAuto(String username, String password) {
         Map<String, Object> result = new HashMap<>();
         result.put("success", false);
 
-        if (id == null || password == null || password.isEmpty()) {
+        if (username == null || username.isEmpty() || password == null || password.isEmpty()) {
             result.put("message", "请输入账号和密码");
             return result;
         }
 
-        // 先尝试学生表
-        Student student = studentMapper.login(id, password);
-        if (student != null) {
-            result.put("success", true);
-            result.put("role", "student");
-            result.put("userId", student.getStudentId());
-            result.put("userName", student.getStudentName());
-            result.put("message", "登录成功");
-            return result;
-        }
+        // 尝试解析为数字 → 查学生表和教师表
+        try {
+            Integer id = Integer.parseInt(username);
 
-        // 再尝试教师表
-        Teacher teacher = teacherMapper.login(id, password);
-        if (teacher != null) {
-            result.put("success", true);
-            result.put("role", "teacher");
-            result.put("userId", teacher.getTeacherId());
-            result.put("userName", teacher.getTeacherName());
-            result.put("message", "登录成功");
-            return result;
+            Student student = studentMapper.login(id, password);
+            if (student != null) {
+                result.put("success", true);
+                result.put("role", "student");
+                result.put("userId", student.getStudentId());
+                result.put("userName", student.getStudentName());
+                result.put("message", "登录成功");
+                return result;
+            }
+
+            Teacher teacher = teacherMapper.login(id, password);
+            if (teacher != null) {
+                result.put("success", true);
+                result.put("role", "teacher");
+                result.put("userId", teacher.getTeacherId());
+                result.put("userName", teacher.getTeacherName());
+                result.put("message", "登录成功");
+                return result;
+            }
+        } catch (NumberFormatException e) {
+            // 非数字 → 尝试管理员
+            if ("admin".equals(username) && "admin123".equals(password)) {
+                result.put("success", true);
+                result.put("role", "admin");
+                result.put("userId", "admin");
+                result.put("userName", "系统管理员");
+                result.put("message", "登录成功");
+                return result;
+            }
         }
 
         result.put("message", "登录失败：账号或密码错误");

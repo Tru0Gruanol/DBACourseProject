@@ -41,6 +41,7 @@
 | Vue Router | 前端路由 | 4+ | 单页面应用路由管理 |
 | Axios | HTTP 库 | 最新 | 前后端数据通信 |
 | Element Plus | UI 组件库 | 最新 | 表格、表单、弹窗、导航等 UI 组件 |
+| Pinia | 状态管理 | 最新 | 登录用户身份持久化、角色状态管理 |
 | Node.js | 前端运行环境 | v24.16.0 | Vue 项目运行与构建依赖 |
 | npm | 包管理器 | 11.13.0 | 前端依赖安装与管理 |
 | MySQL | 数据库 | 8+| 持久化存储全部业务数据 |
@@ -57,26 +58,29 @@
 ### 3.1 整体架构
 
 ```
-浏览器 (Browser)  ─── http://localhost:5173 ───▶  前端 (Vue 3 + Element Plus)
-                                                  ├─ Router  路由层
-                                                  ├─ Views   视图层（6个页面组件）
-                                                  └─ API     Axios 请求封装层
+浏览器 (Browser)  ─── http://localhost:5173 ───▶  前端 (Vue 3 + Element Plus + Pinia)
+                                                  ├─ Router       路由层（beforeEach 角色守卫）
+                                                  ├─ Stores       状态层（auth 用户身份持久化）
+                                                  ├─ Views        视图层（8 个页面组件）
+                                                  ├─ Components   组件层（SidebarNav 角色导航）
+                                                  └─ API          Axios 请求封装层（8 个模块）
 
                                                      │  HTTP/JSON (CORS 跨域)
                                                      ▼
                                                  后端 (Spring Boot + MyBatis)
-                                                  ├─ Controller  控制层（7个 REST 接口）
-                                                  ├─ Service     业务逻辑层（事务管理/校验）
-                                                  ├─ Mapper      数据访问层（6个）
-                                                  └─ Entity      实体层（6个 Java Bean）
+                                                  ├─ Controller  控制层（8 个 REST 接口）
+                                                  ├─ Service     业务逻辑层（事务管理/校验/认证）
+                                                  ├─ Mapper      数据访问层（6 个）
+                                                  ├─ Entity      实体层（6 个 Java Bean）
+                                                  └─ Handler     全局异常处理
 
                                                      │  JDBC
                                                      ▼
                                                  MySQL 数据库 (tutoring_center)
-                                                  ├─ teachers            教师信息表
+                                                  ├─ teachers            教师信息表（含 password）
                                                   ├─ subjects            科目基础表
                                                   ├─ classes             班级排课表
-                                                  ├─ students            学生档案表
+                                                  ├─ students            学生档案表（含 password）
                                                   ├─ student_enrollments 选课报名桥接表
                                                   └─ accounts            账目流水表
 ```
@@ -111,7 +115,9 @@ DBACourseProject
 │
 ├─ database/                          # 数据库脚本
 │   ├─ create_table.sql               #   建表脚本（6 张表，含外键与约束）
-│   └─ insert_test_data.sql           #   测试数据（4 教师 + 4 科目 + 8 班级 + 5 学生 + 7 报名 + 7 账目）
+│   ├─ insert_test_data.sql           #   测试数据（4 教师 + 4 科目 + 8 班级 + 5 学生 + 7 报名 + 7 账目）
+│   ├─ migrate_day07.sql              #   students 表增加 registration_time
+│   └─ migrate_day08.sql              #   students / teachers 表增加 password 字段
 │
 ├─ backend/                           # 后端 Spring Boot 项目
 │   └─ center-management/
@@ -123,6 +129,10 @@ DBACourseProject
 │               ├─ CenterManagementApplication.java   # 启动类
 │               ├─ config/
 │               │   └─ WebConfig.java                # CORS 跨域配置
+│               ├─ dto/
+│               │   └─ Result.java                   # 统一响应体（code + message + data）
+│               ├─ handler/
+│               │   └─ GlobalExceptionHandler.java   # 全局异常处理（加分项）
 │               ├─ entity/               # 实体层（6 个）
 │               │   ├─ Teacher.java
 │               │   ├─ Subject.java
@@ -137,22 +147,24 @@ DBACourseProject
 │               │   ├─ StudentMapper.java
 │               │   ├─ StudentEnrollmentMapper.java
 │               │   └─ AccountMapper.java
-│               ├─ service/              # 业务逻辑层（7 个）
+│               ├─ service/              # 业务逻辑层（8 个）
 │               │   ├─ TeacherService.java
 │               │   ├─ SubjectService.java
 │               │   ├─ ClassesService.java
 │               │   ├─ StudentService.java
 │               │   ├─ StudentEnrollmentService.java
 │               │   ├─ AccountService.java
-│               │   └─ ScheduleService.java
-│               └─ controller/           # 控制层（7 个）
+│               │   ├─ ScheduleService.java
+│               │   └─ AuthService.java              # 统一登录认证 + 改密
+│               └─ controller/           # 控制层（8 个）
 │                   ├─ TeacherController.java
 │                   ├─ SubjectController.java
 │                   ├─ ClassesController.java
 │                   ├─ StudentController.java
 │                   ├─ StudentEnrollmentController.java
 │                   ├─ AccountController.java
-│                   └─ ScheduleController.java
+│                   ├─ ScheduleController.java
+│                   └─ AuthController.java           # 登录 + 改密接口
 │
 ├─ frontend/                           # 前端 Vue 3 项目
 │   ├─ package.json                    #   依赖配置
@@ -168,18 +180,25 @@ DBACourseProject
 │       │   └─ MainLayout.vue          #   主布局（侧边栏 + 顶栏 + 路由出口）
 │       ├─ utils/
 │       │   └─ request.js              #   Axios 全局封装
-│       ├─ api/                        #   API 接口层（7 个模块）
+│       ├─ stores/
+│       │   └─ auth.js                 #   Pinia 认证状态（角色、用户信息持久化）
+│       ├─ components/
+│       │   └─ SidebarNav.vue          #   侧边栏导航（角色过滤 + 用户信息 + 改密入口）
+│       ├─ api/                        #   API 接口层（8 个模块）
 │       │   ├─ teacher.js
 │       │   ├─ subject.js
 │       │   ├─ classes.js
 │       │   ├─ student.js
 │       │   ├─ enrollment.js
 │       │   ├─ account.js
-│       │   └─ schedule.js
-│       └─ views/                      #   页面组件（6 个）
+│       │   ├─ schedule.js
+│       │   └─ auth.js                 #   登录 + 改密码
+│       └─ views/                      #   页面组件（8 个）
+│           ├─ LoginView.vue           #     统一登录页
 │           ├─ StudentEnrollment.vue   #     学生报名页
 │           ├─ SubjectManage.vue       #     科目管理页
 │           ├─ ClassManage.vue         #     班级管理页
+│           ├─ TeacherManage.vue       #     教师管理页
 │           ├─ FeeManage.vue           #     收费管理页
 │           ├─ ScheduleQuery.vue       #     课表查询页
 │           └─ StudentManage.vue       #     学生管理页
@@ -189,6 +208,9 @@ DBACourseProject
 │   ├─ day02.md                        #   Day02：数据库设计与 Spring Boot 搭建
 │   ├─ day03.md                        #   Day03：后端核心开发与 API 调试
 │   ├─ day04.md                        #   Day04：后端完善与前端全面开发
+│   ├─ day05.md                        #   Day05：Bug 修复与功能完善
+│   ├─ day06.md                        #   Day06：假登录 + 前端全面优化
+│   ├─ day07.md                        #   Day07：登录认证系统 + 教师薪酬 + 统一登录
 │   └─ Images/                         #   日志截图
 │
 └─ README.md                           # 项目说明文档（本文件）
@@ -218,6 +240,7 @@ DBACourseProject
 | teacher_name | VARCHAR(50) | NOT NULL | 教师姓名 |
 | teacher_level | VARCHAR(20) | — | 教师等级（金牌教师/高级教师/特级教师/中级教师） |
 | specialty | VARCHAR(100) | — | 特长科目描述（如：奥数,围棋） |
+| password | VARCHAR(100) | NOT NULL DEFAULT '111111' | 登录密码 |
 
 #### 5.2.2 科目表 (subjects)
 
@@ -251,6 +274,7 @@ DBACourseProject
 | student_id | INT | PRIMARY KEY | 学生编号 |
 | student_name | VARCHAR(50) | NOT NULL | 学生姓名 |
 | registration_time | DATETIME | NOT NULL | 建档注册时间 |
+| password | VARCHAR(100) | NOT NULL DEFAULT '111111' | 登录密码 |
 
 #### 5.2.5 学生选课报名表 (student_enrollments)
 
@@ -282,13 +306,23 @@ DBACourseProject
 
 Base URL: http://localhost:8080/api
 
-### 6.1 教师模块 — `/api/teachers`
+### 6.1 认证模块 — `/api/auth`
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/auth/login` | 统一登录（自动识别学生/教师/管理员） |
+| PUT | `/api/auth/change-password` | 修改密码（学生/教师） |
+
+### 6.2 教师模块 — `/api/teachers`
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/api/teachers` | 获取全部教师列表 |
+| GET | `/api/teachers/salaries` | 获取全部教师薪酬汇总 |
+| GET | `/api/teachers/by-specialty?specialty=` | 按特长查询教师 |
+| GET | `/api/teachers/{teacherId}` | 按 ID 查询教师 |
 
-### 6.2 科目模块 — `/api/subjects`
+### 6.3 科目模块 — `/api/subjects`
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
@@ -298,7 +332,7 @@ Base URL: http://localhost:8080/api
 | PUT | `/api/subjects` | 更新科目 |
 | DELETE | `/api/subjects/{subjectId}` | 删除科目（有关联班级时阻止） |
 
-### 6.3 班级模块 — `/api/classes`
+### 6.4 班级模块 — `/api/classes`
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
@@ -307,18 +341,20 @@ Base URL: http://localhost:8080/api
 | GET | `/api/classes/by-subject?subjectId=` | 按科目 ID 查询班级列表 |
 | POST | `/api/classes` | 新增班级（含外键校验与代号重复校验） |
 
-### 6.4 学生模块 — `/api/students`
+### 6.5 学生模块 — `/api/students`
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/api/students` | 获取全部学生 |
 | POST | `/api/students` | 新增学生（含 ID 重复校验） |
 
-### 6.5 报名模块 — `/api/enrollments`
+### 6.6 报名模块 — `/api/enrollments`
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `/api/enrollments/submit` | 提交报名（核心事务接口） |
+| PUT | `/api/enrollments/cancel?studentId=&classCode=` | 退课（退回已缴金额） |
+| GET | `/api/enrollments/check?studentId=&classCode=` | 检查报名状态（是否退过） |
 
 **报名流程**（`StudentEnrollmentService.processEnrollment`）：
 
@@ -331,40 +367,55 @@ Base URL: http://localhost:8080/api
 7. 写入 `accounts` 账目流水表
 8. 以上操作在同一事务中，失败则全部回滚
 
-### 6.6 账目模块 — `/api/accounts`
+### 6.7 账目模块 — `/api/accounts`
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/api/accounts` | 查询全部流水记录 |
-| POST | `/api/accounts/pay` | 单独缴费（校验报名 + 写入流水 + 更新已缴金额） |
+| POST | `/api/accounts/pay` | 单独缴费/补缴（校验报名 + 写入流水 + 更新已缴金额） |
 | GET | `/api/accounts/invoice?studentId=&classCode=` | 打印收费清单（应缴/已缴/欠费 + 缴费明细） |
 | GET | `/api/accounts/debtors` | 查询欠费学生列表 |
+| GET | `/api/accounts/student/{studentId}` | 查询学生缴费汇总（报名列表 + 欠费统计） |
 
-### 6.7 课表模块 — `/api/schedules`
+### 6.8 课表模块 — `/api/schedules`
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/api/schedules/student/{studentId}` | 学生课表（该生所有班级的上课时间与教室） |
-| GET | `/api/schedules/teacher/{teacherId}` | 教师课表（该教师所有排课信息） |
+| GET | `/api/schedules/teacher/{teacherId}` | 教师课表（含学生人数、课时报酬） |
 
 ---
 
 ## 七、前端页面说明
 
-### 7.1 导航结构
+### 7.1 登录认证
 
-![前端页面](./log/Images/readme.png)
+系统使用统一的登录入口，学生、教师和管理员共用同一个登录表单。输入学号/工号/管理员名 + 密码后，后端自动识别身份并跳转到对应首页。
 
-### 7.2 页面功能详情
+- **路由守卫**：`beforeEach` 根据角色权限拦截未授权页面访问
+- **状态持久化**：Pinia store + localStorage，刷新页面不丢失登录状态
+- **密码修改**：学生和教师可在侧边栏修改密码，管理员密码固定
 
-| 页面 | 路由 | 核心功能 |
-|------|------|----------|
-| **学生报名** | `/enrollment` | 科目下拉选择 → 班级列表加载（含名额/费用展示）→ 填写学生 ID 和缴费金额 → 提交报名（含各种拦截提示） |
-| **科目管理** | `/subjects` | 科目表格展示、新增科目弹窗、编辑科目弹窗、删除确认 |
-| **班级管理** | `/classes` | 班级列表（含科目/教师名称映射）、新增班级弹窗（科目/教师下拉选择、全部字段录入） |
-| **收费管理** | `/fee` | 四 Tab：流水记录、单独缴费、收费清单（应缴/已缴/欠费）、催费列表（红色高亮欠费） |
-| **课表查询** | `/schedule` | 双 Tab：按学生 ID 查个人课表、按教师 ID 查授课日程 |
-| **学生管理** | `/students` | 内联新增表单 + 学生列表 |
+### 7.2 角色菜单
+
+| 角色 | 可见菜单 |
+|------|----------|
+| 学生 | 学生报名、课表查询 |
+| 教师 | 课表查询（含薪酬汇总） |
+| 管理员 | 全部 7 个菜单（学生报名、科目管理、班级管理、教师管理、学生管理、收费管理、课表查询） |
+
+### 7.3 页面功能详情
+
+| 页面 | 路由 | 角色 | 核心功能 |
+|------|------|------|----------|
+| **登录页** | `/login` | 全部 | 统一登录表单（学号/工号/管理员名 + 密码），后端自动识别身份 |
+| **学生报名** | `/enrollment` | 学生/管理员 | 学生端：我的缴费状态卡片 + 补缴按钮 + 报名表单 + 退课；管理端：报名表单 + 退课 |
+| **科目管理** | `/subjects` | 管理员 | 科目表格展示、新增科目弹窗、编辑科目弹窗、删除确认 |
+| **班级管理** | `/classes` | 管理员 | 班级列表（含科目/教师名称映射、金额 ¥ 格式化、满员标红）、新增班级弹窗 |
+| **教师管理** | `/teachers` | 管理员 | 教师列表展示、按特长筛选、内联新增表单 |
+| **收费管理** | `/fee` | 管理员 | 四 Tab：流水记录、单独缴费、收费清单（应缴/已缴/欠费）、教师薪酬 |
+| **课表查询** | `/schedule` | 全部 | 学生：自动显示自己课表；教师：自动显示自己课表 + 薪酬汇总；管理员：双标签手动查询 |
+| **学生管理** | `/students` | 管理员 | 内联新增表单 + 学生列表 |
 
 ---
 
@@ -460,7 +511,11 @@ const request = axios.create({
 | 数据要求：科目信息 | ✅ | `subjects` + `classes` 联合承载 |
 | 数据要求：教师信息 | ✅ | `teachers` |
 | 数据要求：账目信息 | ✅ | `accounts` |
+| 角色登录认证 | ✅ 完整实现 | `AuthService.loginAuto` 三种身份自动识别 |
+| 学生补缴欠费 | ✅ 完整实现 | 缴费状态卡片 + arrears 计算 + 补缴弹窗 |
+| 教师薪酬统计 | ✅ 完整实现 | 教师端汇总卡 + 管理端教师薪酬标签页 |
 | 事务管理（加分项） | ✅ | `@Transactional` 报名 + 缴费 |
+| 全局异常处理（加分项） | ✅ | `GlobalExceptionHandler` |
 
 ---
 
@@ -472,6 +527,9 @@ const request = axios.create({
 | 2026.6.3～6.4 | [Day02](log/day02.md) | ER 图设计、6 张表建表、范式优化讨论、Spring Boot 项目创建、第一个 API 测试 |
 | 2026.6.5 | [Day03](log/day03.md) | 后端核心开发、报名事务流程、跨域配置、防重复校验、全部接口调试 |
 | 2026.6.6 | [Day04](log/day04.md) | 后端完善（科目 CRUD + 课表 + 缴费/清单/催费）、前端全面开发（6 页面） |
+| 2026.6.8 | [Day05](log/day05.md) | Bug 修复、教师管理页、文件管理优化、退课退款逻辑完善 |
+| 2026.6.9 | [Day06](log/day06.md) | 前端假登录（角色 UI 分流）、前后端联调删除逻辑、UI 细节优化 |
+| 2026.6.11 | [Day07](log/day07.md) | 登录认证系统（数据库密码字段 + 后端统一登录 + Pinia 状态管理）、学生补缴、教师薪酬、统一登录入口合并 |
 
 ---
 
