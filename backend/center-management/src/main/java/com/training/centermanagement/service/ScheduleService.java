@@ -45,6 +45,10 @@ public class ScheduleService {
             item.put("term", cls.getTerm());
             item.put("period", cls.getPeriod());
             item.put("location", cls.getLocation());
+            item.put("teacherRemuneration", cls.getTeacherRemuneration());
+            item.put("fee", cls.getFee());
+            item.put("enrolledCount", cls.getEnrolledCount());
+            item.put("capacity", cls.getCapacity());
             schedule.add(item);
         }
         return schedule;

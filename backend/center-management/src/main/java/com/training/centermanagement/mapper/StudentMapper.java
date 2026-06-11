@@ -22,4 +22,12 @@ public interface StudentMapper {
 
     @Delete("DELETE FROM students WHERE student_id = #{studentId}")
     int deleteStudent(Integer studentId);
+
+    // 登录验证：按学号+密码查询
+    @Select("SELECT student_id AS studentId, student_name AS studentName, registration_time AS registrationTime, password FROM students WHERE student_id = #{studentId} AND password = #{password}")
+    Student login(Integer studentId, String password);
+
+    // 修改密码
+    @Update("UPDATE students SET password = #{newPassword} WHERE student_id = #{studentId} AND password = #{oldPassword}")
+    int changePassword(Integer studentId, String oldPassword, String newPassword);
 }

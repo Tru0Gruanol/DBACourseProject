@@ -1,18 +1,23 @@
 <template>
   <div>
-    <h2>科目管理</h2>
-    <el-button type="primary" @click="openAddDialog">新增科目</el-button>
-    <el-table :data="subjects" border style="margin-top:20px">
-      <el-table-column prop="subjectId" label="科目编号" />
-      <el-table-column prop="subjectName" label="科目名称" />
-      <el-table-column prop="hours" label="课时数" />
-      <el-table-column label="操作">
-        <template #default="{ row }">
-          <el-button size="small" @click="openEditDialog(row)">编辑</el-button>
-          <el-button size="small" type="danger" @click="handleDelete(row.subjectId)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <div class="page-header">
+      <el-icon><Notebook /></el-icon>
+      <h2>科目管理</h2>
+    </div>
+    <el-card shadow="hover">
+      <el-button type="primary" @click="openAddDialog" style="margin-bottom:16px">新增科目</el-button>
+      <el-table :data="subjects" stripe border>
+        <el-table-column prop="subjectId" label="科目编号" width="120" />
+        <el-table-column prop="subjectName" label="科目名称" min-width="200" />
+        <el-table-column prop="hours" label="课时数" width="100" />
+        <el-table-column label="操作" width="180">
+          <template #default="{ row }">
+            <el-button size="small" @click="openEditDialog(row)">编辑</el-button>
+            <el-button size="small" type="danger" @click="handleDelete(row.subjectId)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="30%">
       <el-form :model="currentSubject" label-width="100px">
@@ -38,6 +43,7 @@
 import { ref, onMounted } from 'vue'
 import { getSubjects, addSubject, updateSubject, deleteSubject } from '@/api/subject'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Notebook } from '@element-plus/icons-vue'
 
 const subjects = ref([])
 const dialogVisible = ref(false)

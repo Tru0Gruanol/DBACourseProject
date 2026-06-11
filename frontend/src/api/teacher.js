@@ -23,3 +23,8 @@ export function updateTeacher(data) {
 export function deleteTeacher(id) {
   return request.delete(`/teachers/${id}`)
 }
+
+// 教师薪酬汇总（管理员端）
+export function getTeacherSalaries() {
+  return request.get('/teachers/salaries')
+}

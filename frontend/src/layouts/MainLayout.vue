@@ -1,62 +1,43 @@
 <template>
-  <el-container style="height: 100vh">
-    <el-aside width="200px" style="background-color: #304156">
-      <el-menu
-        router
-        :default-active="$route.path"
-        background-color="#304156"
-        text-color="#bfcbd9"
-        active-text-color="#409EFF"
-      >
-        <el-menu-item index="/enrollment">
-          <el-icon><User /></el-icon>
-          <span>学生报名</span>
-        </el-menu-item>
-        <el-menu-item index="/subjects">
-          <el-icon><Notebook /></el-icon>
-          <span>科目管理</span>
-        </el-menu-item>
-        <el-menu-item index="/classes">
-          <el-icon><School /></el-icon>
-          <span>班级管理</span>
-        </el-menu-item>
-        <el-menu-item index="/teachers">
-          <el-icon><Avatar /></el-icon>
-          <span>教师管理</span>
-        </el-menu-item>
-        <el-menu-item index="/fee">
-          <el-icon><Money /></el-icon>
-          <span>收费管理</span>
-        </el-menu-item>
-        <el-menu-item index="/schedule">
-          <el-icon><Calendar /></el-icon>
-          <span>课表查询</span>
-        </el-menu-item>
-        <el-menu-item index="/students">
-          <el-icon><User /></el-icon>
-          <span>学生管理</span>
-        </el-menu-item>
-      </el-menu>
-    </el-aside>
+  <!-- 未登录：只渲染登录页，无侧边栏无顶栏 -->
+  <template v-if="!auth.isLoggedIn">
+    <router-view />
+  </template>
+
+  <!-- 已登录：完整布局 -->
+  <el-container v-else style="height: 100vh">
+    <SidebarNav />
+
     <el-container>
-      <el-header style="text-align: right; font-size: 12px">
-        <span>托管培训中心管理系统</span>
+      <el-header style="background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 32px;border-bottom:1px solid #eeeef2;height:48px">
+        <span style="font-size:13px;color:#8c8c9a">托管培训中心信息管理系统</span>
+        <span style="font-size:12px;color:#5b6abf">
+          <el-icon style="margin-right:2px;vertical-align:middle"><User /></el-icon>
+          欢迎，{{ auth.userName || auth.userId }}
+        </span>
       </el-header>
+
       <el-main>
-        <router-view />
+        <router-view v-slot="{ Component }">
+          <transition name="fade" mode="out-in">
+            <component :is="Component" />
+          </transition>
+        </router-view>
       </el-main>
     </el-container>
   </el-container>
 </template>
 
 <script setup>
-import { User, Notebook, School, Avatar, Money, Calendar } from '@element-plus/icons-vue'
+import { useAuthStore } from '@/stores/auth'
+import SidebarNav from '@/components/SidebarNav.vue'
+import { User } from '@element-plus/icons-vue'
+
+const auth = useAuthStore()
 </script>
 
 <style scoped>
 .el-header {
-  background-color: #f5f7fa;
-  line-height: 60px;
-  border-bottom: 1px solid #e6e6e6;
+  line-height: 48px;
 }
 </style>

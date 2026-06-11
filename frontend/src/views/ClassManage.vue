@@ -1,9 +1,13 @@
 <template>
   <div>
-    <h2>班级管理</h2>
-    <el-button type="primary" @click="openAddDialog">新增班级</el-button>
+    <div class="page-header">
+      <el-icon><School /></el-icon>
+      <h2>班级管理</h2>
+    </div>
+    <el-card shadow="hover">
+      <el-button type="primary" @click="openAddDialog" style="margin-bottom:16px">新增班级</el-button>
 
-    <el-table :data="classes" border style="margin-top:20px" v-loading="loading">
+    <el-table :data="classes" stripe border v-loading="loading">
       <el-table-column prop="classCode" label="班级代号" width="140" />
       <el-table-column label="科目" width="100">
         <template #default="{ row }">
@@ -17,14 +21,20 @@
       </el-table-column>
       <el-table-column prop="term" label="期次" width="120" />
       <el-table-column prop="period" label="上课时间" width="180" />
-      <el-table-column prop="fee" label="学费" width="100" />
+      <el-table-column label="学费" width="100">
+        <template #default="{ row }">¥{{ (row.fee || 0).toFixed(2) }}</template>
+      </el-table-column>
       <el-table-column prop="location" label="教室" width="120" />
       <el-table-column label="名额" width="120">
         <template #default="{ row }">
-          {{ row.enrolledCount }} / {{ row.capacity }}
+          <span :style="{ color: row.enrolledCount >= row.capacity ? '#F56C6C' : '' }">
+            {{ row.enrolledCount }} / {{ row.capacity }}
+          </span>
         </template>
       </el-table-column>
-      <el-table-column prop="teacherRemuneration" label="教师报酬" width="100" />
+      <el-table-column label="教师报酬" width="100">
+        <template #default="{ row }">¥{{ (row.teacherRemuneration || 0).toFixed(2) }}</template>
+      </el-table-column>
       <el-table-column label="操作" width="180">
         <template #default="{ row }">
           <el-button size="small" @click="openEditDialog(row)">编辑</el-button>
@@ -32,6 +42,7 @@
         </template>
       </el-table-column>
     </el-table>
+    </el-card>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="45%">
       <el-form :model="form" label-width="110px">
@@ -85,6 +96,7 @@ import { getClasses, addClass, updateClass, deleteClass } from '@/api/classes'
 import { getSubjects } from '@/api/subject'
 import { getTeachers, getTeachersBySpecialty } from '@/api/teacher'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { School } from '@element-plus/icons-vue'
 
 const classes = ref([])
 const subjects = ref([])

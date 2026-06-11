@@ -1,22 +1,27 @@
 <template>
   <div>
-    <h2>学生管理</h2>
-    <el-button type="primary" @click="openAddDialog">新增学生</el-button>
-    <el-table :data="students" border style="margin-top:20px" v-loading="loading">
-      <el-table-column prop="studentId" label="学生ID" width="100" />
-      <el-table-column prop="studentName" label="姓名" width="150" />
-      <el-table-column label="注册时间" width="200">
-        <template #default="{ row }">
-          {{ formatDate(row.registrationTime) }}
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="180">
-        <template #default="{ row }">
-          <el-button size="small" @click="openEditDialog(row)">编辑</el-button>
-          <el-button size="small" type="danger" @click="handleDelete(row.studentId)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <div class="page-header">
+      <el-icon><UserFilled /></el-icon>
+      <h2>学生管理</h2>
+    </div>
+    <el-card shadow="hover">
+      <el-button type="primary" @click="openAddDialog" style="margin-bottom:16px">新增学生</el-button>
+      <el-table :data="students" stripe border v-loading="loading">
+        <el-table-column prop="studentId" label="学生ID" width="100" />
+        <el-table-column prop="studentName" label="姓名" width="150" />
+        <el-table-column label="注册时间" width="200">
+          <template #default="{ row }">
+            {{ formatDate(row.registrationTime) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="180">
+          <template #default="{ row }">
+            <el-button size="small" @click="openEditDialog(row)">编辑</el-button>
+            <el-button size="small" type="danger" @click="handleDelete(row.studentId)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="30%">
       <el-form :model="form" label-width="100px">
@@ -39,6 +44,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { getStudents, addStudent, updateStudent, deleteStudent } from '@/api/student'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { UserFilled } from '@element-plus/icons-vue'
 
 const students = ref([])
 const loading = ref(false)

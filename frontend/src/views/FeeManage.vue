@@ -1,40 +1,50 @@
 <template>
   <div>
-    <h2>收费管理</h2>
+    <div class="page-header">
+      <el-icon><Money /></el-icon>
+      <h2>收费管理</h2>
+    </div>
 
     <el-tabs v-model="activeTab" type="border-card">
       <!-- ==================== 缴费查询 ==================== -->
       <el-tab-pane label="缴费查询" name="query">
-        <el-form :inline="true">
-          <el-form-item label="学生ID">
-            <el-input v-model="queryStudentId" placeholder="请输入学生ID" @keyup.enter="handleQuery" />
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" @click="handleQuery">查询</el-button>
-          </el-form-item>
-        </el-form>
+        <div class="query-bar">
+          <el-form :inline="true">
+            <el-form-item label="学生ID">
+              <el-input v-model="queryStudentId" placeholder="请输入学生ID" @keyup.enter="handleQuery" style="width:200px" />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="handleQuery" :loading="queryLoading">
+                {{ summary ? '刷新' : '查询' }}
+              </el-button>
+            </el-form-item>
+          </el-form>
+        </div>
 
-        <!-- 学生概览：只显示欠费或已结清，不存在多缴 -->
-        <el-descriptions v-if="summary" :column="3" border style="margin-top:16px">
-          <el-descriptions-item label="应缴总额">
-            <span style="font-weight:bold">¥{{ summary.totalFee }}</span>
-          </el-descriptions-item>
-          <el-descriptions-item label="已缴总额">
-            <span style="font-weight:bold">¥{{ summary.totalPaid }}</span>
-          </el-descriptions-item>
-          <el-descriptions-item label="欠费金额">
-            <span v-if="summary.totalFee > summary.totalPaid" style="color:red;font-weight:bold">
-              欠费 ¥{{ (summary.totalFee - summary.totalPaid).toFixed(2) }}
+        <!-- 统计卡片 -->
+        <div v-if="summary" class="stat-cards">
+          <div class="stat-card blue">
+            <span class="stat-label">应缴总额</span>
+            <span class="stat-value">¥{{ summary.totalFee }}</span>
+          </div>
+          <div class="stat-card green">
+            <span class="stat-label">已缴总额</span>
+            <span class="stat-value">¥{{ summary.totalPaid }}</span>
+          </div>
+          <div class="stat-card" :class="summary.totalFee > summary.totalPaid ? 'red' : 'green'">
+            <span class="stat-label">{{ summary.totalFee > summary.totalPaid ? '尚欠金额' : '缴费状态' }}</span>
+            <span class="stat-value" v-if="summary.totalFee > summary.totalPaid">
+              ¥{{ (summary.totalFee - summary.totalPaid).toFixed(2) }}
             </span>
-            <span v-else style="color:green;font-weight:bold">已结清</span>
-          </el-descriptions-item>
-        </el-descriptions>
+            <span class="stat-value" v-else style="font-size:20px">已结清</span>
+          </div>
+        </div>
 
-        <!-- 报名明细：每行自带操作按钮，无需复选框 -->
+        <!-- 报名明细 -->
         <el-table
           v-if="summary && summary.enrollments && summary.enrollments.length"
           :data="summary.enrollments"
-          border
+          stripe border
           style="margin-top:16px"
           v-loading="queryLoading"
         >
@@ -51,27 +61,33 @@
           <el-table-column label="已缴" width="100">
             <template #default="{ row }">¥{{ row.totalPaid }}</template>
           </el-table-column>
-          <el-table-column label="欠费" width="100">
+          <el-table-column label="欠费" width="120">
             <template #default="{ row }">
-              <span v-if="row.status === 'active' && row.fee > row.totalPaid" style="color:red">
-                ¥{{ (row.fee - row.totalPaid).toFixed(2) }}
-              </span>
-              <span v-else-if="row.status === 'active'" style="color:green">已结清</span>
+              <template v-if="row.status === 'active'">
+                <span v-if="row.fee > row.totalPaid" style="color:#F56C6C;font-weight:500">
+                  欠 ¥{{ (row.fee - row.totalPaid).toFixed(2) }}
+                </span>
+                <span v-else style="color:#67C23A">已结清</span>
+              </template>
               <span v-else style="color:#909399">—</span>
             </template>
           </el-table-column>
-          <el-table-column label="状态" width="140">
+          <el-table-column label="状态" width="100">
             <template #default="{ row }">
-              <el-tag v-if="row.status === 'active'" type="success">在读</el-tag>
-              <el-tag v-else type="info">已退课（已退款）</el-tag>
+              <el-tag v-if="row.status === 'active'" type="success" size="small">在读</el-tag>
+              <el-tag v-else type="info" size="small">已退课</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="140" fixed="right">
+          <el-table-column label="操作" width="80" fixed="right">
             <template #default="{ row }">
-              <template v-if="row.status === 'active'">
-                <el-button size="small" type="primary" @click="showPayDialog(row)">缴费</el-button>
-                <el-button size="small" type="danger" @click="handleCancelEnrollment(row)">退课</el-button>
-              </template>
+              <el-button
+                v-if="row.status === 'active'"
+                size="small"
+                type="danger"
+                @click="handleCancelEnrollment(row)"
+              >
+                退课
+              </el-button>
               <span v-else style="color:#909399;font-size:12px">—</span>
             </template>
           </el-table-column>
@@ -82,7 +98,10 @@
 
       <!-- ==================== 流水记录 ==================== -->
       <el-tab-pane label="流水记录" name="records">
-        <el-table :data="accounts" border v-loading="accountsLoading">
+        <div style="margin-bottom:12px">
+          <el-button @click="refreshAccounts" :loading="accountsLoading">刷新数据</el-button>
+        </div>
+        <el-table :data="accounts" stripe border v-loading="accountsLoading" empty-text="暂无流水记录">
           <el-table-column prop="accountId" label="流水号" width="80" />
           <el-table-column label="日期" width="120">
             <template #default="{ row }">
@@ -92,71 +111,88 @@
           <el-table-column prop="studentId" label="学生ID" width="100" />
           <el-table-column prop="classCode" label="班级" width="140" />
           <el-table-column prop="subjectId" label="科目ID" width="80" />
-          <el-table-column label="金额" width="140">
+          <el-table-column label="金额" min-width="140">
             <template #default="{ row }">
-              <span v-if="row.amountPaid >= 0">¥{{ row.amountPaid }}</span>
-              <span v-else style="color:red;font-weight:bold">-¥{{ Math.abs(row.amountPaid) }}（退款）</span>
+              <span v-if="row.amountPaid >= 0">¥{{ row.amountPaid.toFixed(2) }}</span>
+              <span v-else style="color:#F56C6C;font-weight:500">
+                退款 ¥{{ Math.abs(row.amountPaid).toFixed(2) }}
+              </span>
             </template>
           </el-table-column>
         </el-table>
-        <el-button type="primary" style="margin-top:12px" @click="refreshAccounts">刷新流水</el-button>
       </el-tab-pane>
 
       <!-- ==================== 催费列表 ==================== -->
       <el-tab-pane label="催费列表" name="debtors">
-        <el-button type="warning" @click="handleQueryDebtors" style="margin-bottom:12px">查询欠费学生</el-button>
-        <el-table :data="debtors" border v-loading="debtorLoading" v-if="debtors && debtors.length">
+        <div style="margin-bottom:12px">
+          <el-button type="warning" @click="handleQueryDebtors" :loading="debtorLoading">
+            查询欠费学生
+          </el-button>
+        </div>
+        <el-table
+          v-if="debtors && debtors.length"
+          :data="debtors" stripe border
+          v-loading="debtorLoading"
+        >
           <el-table-column prop="studentId" label="学生ID" width="100" />
-          <el-table-column prop="studentName" label="学生姓名" width="120" />
+          <el-table-column prop="studentName" label="姓名" width="120" />
           <el-table-column prop="classCode" label="班级" width="140" />
-          <el-table-column prop="totalFee" label="应缴总额" width="120">
+          <el-table-column label="应缴" width="100">
             <template #default="{ row }">¥{{ row.totalFee }}</template>
           </el-table-column>
-          <el-table-column prop="totalPaid" label="已缴" width="120">
+          <el-table-column label="已缴" width="100">
             <template #default="{ row }">¥{{ row.totalPaid }}</template>
           </el-table-column>
           <el-table-column label="欠费" width="120">
             <template #default="{ row }">
-              <span style="color:red;font-weight:bold">¥{{ (row.totalFee - row.totalPaid).toFixed(2) }}</span>
+              <span style="color:#F56C6C;font-weight:bold">
+                ¥{{ (row.totalFee - row.totalPaid).toFixed(2) }}
+              </span>
             </template>
           </el-table-column>
         </el-table>
-        <el-empty v-else-if="debtorQueried" description="暂无欠费记录" />
+        <el-empty v-else-if="debtorQueried" description="暂无欠费学生" />
+      </el-tab-pane>
+
+      <!-- ==================== 教师薪酬 ==================== -->
+      <el-tab-pane label="教师薪酬" name="salaries">
+        <div style="margin-bottom:12px">
+          <el-button type="primary" @click="loadTeacherSalaries" :loading="salaryLoading">
+            查询教师薪酬
+          </el-button>
+        </div>
+        <el-table
+          v-if="salaries && salaries.length"
+          :data="salaries" stripe border
+          v-loading="salaryLoading"
+        >
+          <el-table-column prop="teacherId" label="教师号" width="90" />
+          <el-table-column prop="teacherName" label="姓名" width="100" />
+          <el-table-column prop="teacherLevel" label="等级" width="90" />
+          <el-table-column prop="specialty" label="特长" min-width="140" />
+          <el-table-column prop="classCount" label="授课班级" width="90" />
+          <el-table-column label="课时报酬合计" width="140">
+            <template #default="{ row }">
+              <span style="color:#5b6abf;font-weight:600">
+                ¥{{ (row.totalRemuneration || 0).toFixed(2) }}
+              </span>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-empty v-else-if="salaryQueried" description="暂无教师数据" />
       </el-tab-pane>
     </el-tabs>
-
-    <!-- 缴费弹窗 -->
-    <el-dialog v-model="payDialogVisible" title="缴纳学费" width="420px">
-      <el-form :model="payForm" label-width="100px">
-        <el-form-item label="学生ID">
-          <el-input :model-value="queryStudentId" disabled />
-        </el-form-item>
-        <el-form-item label="缴费班级">
-          <el-input :model-value="payTargetRow ? payTargetRow.classCode + '（学费 ¥' + payTargetRow.fee + '）' : ''" disabled />
-        </el-form-item>
-        <el-form-item label="缴费金额">
-          <el-input-number v-model="payForm.amount" :min="0.01" :precision="2" style="width:100%" />
-        </el-form-item>
-        <el-form-item v-if="summary">
-          <span style="color:#909399;font-size:12px">
-            应缴总额: ¥{{ summary.totalFee }} | 已缴总额: ¥{{ summary.totalPaid }} | 本次可缴上限: ¥{{ maxPayable }}
-          </span>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="payDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handlePay">确认缴费</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
-import { getAllAccounts, getStudentSummary, payFee, getDebtors } from '@/api/account'
+import { ref, onMounted } from 'vue'
+import { getAllAccounts, getStudentSummary, getDebtors } from '@/api/account'
 import { cancelEnrollment as cancelEnrollmentApi } from '@/api/enrollment'
 import { getSubjects } from '@/api/subject'
+import { getTeacherSalaries } from '@/api/teacher'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Money } from '@element-plus/icons-vue'
 
 const activeTab = ref('query')
 
@@ -178,11 +214,6 @@ function getSubjectName(subjectId) {
   return subjectMap.value[subjectId] || '科目' + subjectId
 }
 
-const maxPayable = computed(() => {
-  if (!summary.value) return 0
-  return Math.max(0, (summary.value.totalFee || 0) - (summary.value.totalPaid || 0))
-})
-
 async function handleQuery() {
   if (!queryStudentId.value) {
     ElMessage.warning('请输入学生ID')
@@ -198,43 +229,11 @@ async function handleQuery() {
   queryLoading.value = false
 }
 
-// ======== 缴费弹窗 ========
-const payDialogVisible = ref(false)
-const payForm = reactive({ amount: 0 })
-const payTargetRow = ref(null)
-
-function showPayDialog(row) {
-  payTargetRow.value = row
-  payForm.amount = 0
-  payDialogVisible.value = true
-}
-
-async function handlePay() {
-  if (!payForm.amount || payForm.amount <= 0) {
-    ElMessage.warning('缴费金额必须大于0')
-    return
-  }
-  if (payForm.amount > maxPayable.value) {
-    ElMessage.warning(`缴费金额超过可缴上限 ¥${maxPayable.value}`)
-    return
-  }
-  try {
-    const result = await payFee({
-      studentId: Number(queryStudentId.value),
-      classCode: payTargetRow.value.classCode,
-      amount: payForm.amount,
-    })
-    ElMessage.success(result)
-    payDialogVisible.value = false
-    await handleQuery()
-  } catch (e) {}
-}
-
 // ======== 退课操作 ========
 async function handleCancelEnrollment(row) {
   try {
     await ElMessageBox.confirm(
-      `确定要让学生退出班级 ${row.classCode} 吗？如有超额缴费，系统将自动退款。`,
+      `确定要让学生退出班级 ${row.classCode} 吗？已缴费用将全额退款。`,
       '确认退课',
       { type: 'warning' }
     )
@@ -271,6 +270,20 @@ async function handleQueryDebtors() {
   debtorLoading.value = false
 }
 
+// ======== 教师薪酬 ========
+const salaries = ref([])
+const salaryLoading = ref(false)
+const salaryQueried = ref(false)
+
+async function loadTeacherSalaries() {
+  salaryLoading.value = true
+  salaryQueried.value = true
+  try {
+    salaries.value = await getTeacherSalaries()
+  } catch (e) {}
+  salaryLoading.value = false
+}
+
 function formatDate(dateStr) {
   if (!dateStr) return ''
   const d = new Date(dateStr)
@@ -280,3 +293,36 @@ function formatDate(dateStr) {
   return `${y}-${m}-${day}`
 }
 </script>
+
+<style scoped>
+/* ======== 统计卡片 ======== */
+.stat-cards {
+  display: flex;
+  gap: 16px;
+  margin-top: 16px;
+}
+.stat-card {
+  flex: 1;
+  border-radius: 8px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.stat-card.blue  { background: #ecf5ff; }
+.stat-card.green { background: #f0f9eb; }
+.stat-card.red   { background: #fef0f0; }
+
+.stat-label {
+  font-size: 13px;
+  color: #909399;
+}
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #303133;
+}
+.stat-card.blue  .stat-value { color: #409eff; }
+.stat-card.green .stat-value { color: #67c23a; }
+.stat-card.red   .stat-value { color: #f56c6c; }
+</style>

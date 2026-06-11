@@ -31,4 +31,12 @@ public interface TeacherMapper {
     // 根据特长关键词模糊匹配教师（用于班级管理中选择教师时过滤）
     @Select("SELECT teacher_id AS teacherId, teacher_name AS teacherName, teacher_level AS teacherLevel, specialty FROM teachers WHERE specialty LIKE CONCAT('%',#{keyword},'%')")
     List<Teacher> getTeachersBySpecialty(String keyword);
+
+    // 登录验证：按教师号+密码查询
+    @Select("SELECT teacher_id AS teacherId, teacher_name AS teacherName, teacher_level AS teacherLevel, specialty, password FROM teachers WHERE teacher_id = #{teacherId} AND password = #{password}")
+    Teacher login(Integer teacherId, String password);
+
+    // 修改密码
+    @Update("UPDATE teachers SET password = #{newPassword} WHERE teacher_id = #{teacherId} AND password = #{oldPassword}")
+    int changePassword(Integer teacherId, String oldPassword, String newPassword);
 }

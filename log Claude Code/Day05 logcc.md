@@ -130,7 +130,6 @@ request.interceptors.response.use(
 - **前后端联调**：代码已修改完毕且前后端独立编译均通过，但需启动 MySQL + 后端（`./mvnw spring-boot:run`）+ 前端（`npm run dev`），在浏览器中完整走通全部业务流程（科目 CRUD → 班级创建 → 学生建档 → 报名 → 缴费 → 课表查询 → 催费列表），验证修复效果。
 - **课设报告**：[课设报告模版.docx](../课设说明/课设报告模版.docx) 已就绪，尚未开始正文撰写。建议优先完成报告，占总评比重通常最高。
 - **加分项**：6 项仅完成事务管理（`@Transactional`），建议再选做 Redis 缓存（对科目/教师查询做缓存，实现复杂度最低）或敏感数据加解密。
-- **Day05 开发日志**：`log/day05.md` 缺失（git commit 记录显示 Day05 已有代码提交但日志未补）。
 - **安全项**：`application.properties` 中数据库密码 `Root@123456` 以明文硬编码并已提交至公开 GitHub 仓库，建议使用环境变量或 Spring 加密方案处理。
 - **`StudentEnrollmentMapper.selectByStudentAndClass` 使用 `SELECT *`**：当前 MyBatis `map-underscore-to-camel-case=true` 配置下可正常工作，但建议将 `*` 替换为显式列名+别名以增强可维护性。
 

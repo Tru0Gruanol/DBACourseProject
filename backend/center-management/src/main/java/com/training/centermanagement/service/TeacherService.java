@@ -1,15 +1,21 @@
 package com.training.centermanagement.service;
 
+import com.training.centermanagement.entity.Classes;
 import com.training.centermanagement.entity.Teacher;
+import com.training.centermanagement.mapper.ClassesMapper;
 import com.training.centermanagement.mapper.TeacherMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import java.util.List;
+import java.math.BigDecimal;
+import java.util.*;
 
 @Service
 public class TeacherService {
     @Autowired
     private TeacherMapper teacherMapper;
+
+    @Autowired
+    private ClassesMapper classesMapper;
 
     public List<Teacher> getAllTeachers() {
         return teacherMapper.getAllTeachers();
@@ -43,5 +49,28 @@ public class TeacherService {
     // 根据科目名称（特长关键词）模糊匹配教师
     public List<Teacher> getTeachersBySpecialtyKeyword(String keyword) {
         return teacherMapper.getTeachersBySpecialty(keyword);
+    }
+
+    // 获取所有教师的薪酬汇总（每位教师的授课班级 + 总课时报酬）
+    public List<Map<String, Object>> getTeacherSalaries() {
+        List<Teacher> teachers = teacherMapper.getAllTeachers();
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Teacher t : teachers) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("teacherId", t.getTeacherId());
+            item.put("teacherName", t.getTeacherName());
+            item.put("teacherLevel", t.getTeacherLevel());
+            item.put("specialty", t.getSpecialty());
+
+            List<Classes> classes = classesMapper.getClassesByTeacherId(t.getTeacherId());
+            BigDecimal totalRemuneration = BigDecimal.ZERO;
+            for (Classes c : classes) {
+                totalRemuneration = totalRemuneration.add(c.getTeacherRemuneration());
+            }
+            item.put("classCount", classes.size());
+            item.put("totalRemuneration", totalRemuneration);
+            result.add(item);
+        }
+        return result;
     }
 }

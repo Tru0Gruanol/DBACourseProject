@@ -1,19 +1,24 @@
 <template>
   <div>
-    <h2>教师管理</h2>
-    <el-button type="primary" @click="openAddDialog">新增教师</el-button>
-    <el-table :data="teachers" border style="margin-top:20px" v-loading="loading">
-      <el-table-column prop="teacherId" label="教师工号" width="100" />
-      <el-table-column prop="teacherName" label="姓名" width="120" />
-      <el-table-column prop="teacherLevel" label="等级" width="120" />
-      <el-table-column prop="specialty" label="特长" min-width="200" />
-      <el-table-column label="操作" width="180">
-        <template #default="{ row }">
-          <el-button size="small" @click="openEditDialog(row)">编辑</el-button>
-          <el-button size="small" type="danger" @click="handleDelete(row.teacherId)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+    <div class="page-header">
+      <el-icon><Avatar /></el-icon>
+      <h2>教师管理</h2>
+    </div>
+    <el-card shadow="hover">
+      <el-button type="primary" @click="openAddDialog" style="margin-bottom:16px">新增教师</el-button>
+      <el-table :data="teachers" stripe border v-loading="loading">
+        <el-table-column prop="teacherId" label="教师工号" width="100" />
+        <el-table-column prop="teacherName" label="姓名" width="120" />
+        <el-table-column prop="teacherLevel" label="等级" width="120" />
+        <el-table-column prop="specialty" label="特长" min-width="200" />
+        <el-table-column label="操作" width="180">
+          <template #default="{ row }">
+            <el-button size="small" @click="openEditDialog(row)">编辑</el-button>
+            <el-button size="small" type="danger" @click="handleDelete(row.teacherId)">删除</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="35%">
       <el-form :model="form" label-width="100px">
@@ -48,6 +53,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { getTeachers, addTeacher, updateTeacher, deleteTeacher } from '@/api/teacher'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Avatar } from '@element-plus/icons-vue'
 
 const teachers = ref([])
 const loading = ref(false)
