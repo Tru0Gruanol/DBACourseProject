@@ -5,9 +5,22 @@
       <h2>班级管理</h2>
     </div>
     <el-card shadow="hover">
-      <el-button type="primary" @click="openAddDialog" style="margin-bottom:16px">新增班级</el-button>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <el-button type="primary" @click="openAddDialog">新增班级</el-button>
+          <span style="font-size:13px;color:#909399">共 {{ filteredClasses.length }} 个班级</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <el-select v-model="filterSubjectId" placeholder="按科目筛选" clearable style="width:150px">
+            <el-option v-for="s in subjects" :key="s.subjectId" :label="s.subjectName" :value="s.subjectId" />
+          </el-select>
+          <el-select v-model="filterTerm" placeholder="按期次筛选" clearable style="width:150px">
+            <el-option v-for="t in termList" :key="t.name" :label="t.name" :value="t.name" />
+          </el-select>
+        </div>
+      </div>
 
-    <el-table :data="classes" stripe border v-loading="loading">
+    <el-table :data="filteredClasses" stripe border v-loading="loading">
       <el-table-column prop="classCode" label="班级代号" width="140" />
       <el-table-column label="科目" width="100">
         <template #default="{ row }">
@@ -60,7 +73,9 @@
           </el-select>
         </el-form-item>
         <el-form-item label="期次">
-          <el-input v-model="form.term" placeholder="如：2026暑假二期" />
+          <el-select v-model="form.term" placeholder="请选择学期" style="width:100%" allow-create filterable>
+            <el-option v-for="t in termList" :key="t.name" :label="t.name" :value="t.name" />
+          </el-select>
         </el-form-item>
         <el-form-item label="上课时间">
           <el-input v-model="form.period" placeholder="如：每周六 09:00-11:00" />
@@ -69,7 +84,9 @@
           <el-input-number v-model="form.fee" :min="0" :precision="2" style="width:100%" />
         </el-form-item>
         <el-form-item label="教室">
-          <el-input v-model="form.location" placeholder="如：A栋101" />
+          <el-select v-model="form.location" placeholder="请选择教室" style="width:100%" allow-create filterable>
+            <el-option v-for="c in classroomList" :key="c.name" :label="c.name" :value="c.name" />
+          </el-select>
         </el-form-item>
         <el-form-item label="招收人数">
           <el-input-number v-model="form.capacity" :min="1" style="width:100%" />
@@ -91,10 +108,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { getClasses, addClass, updateClass, deleteClass } from '@/api/classes'
 import { getSubjects } from '@/api/subject'
-import { getTeachers, getTeachersBySpecialty } from '@/api/teacher'
+import { getTeachers, getTeachersBySubject } from '@/api/teacher'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { School } from '@element-plus/icons-vue'
 
@@ -102,6 +119,8 @@ const classes = ref([])
 const subjects = ref([])
 const teachers = ref([])
 const filteredTeachers = ref([])
+const filterSubjectId = ref(null)
+const filterTerm = ref('')
 const loading = ref(false)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
@@ -128,36 +147,45 @@ async function loadData() {
   loading.value = true
   try {
     const [clsList, subList, teaList] = await Promise.all([
-      getClasses(),
-      getSubjects(),
-      getTeachers(),
+      getClasses(), getSubjects(), getTeachers(),
     ])
     classes.value = clsList
     subjects.value = subList
     teachers.value = teaList
-    filteredTeachers.value = teaList  // 初始显示全部教师
+    filteredTeachers.value = teaList
   } catch (e) {}
   loading.value = false
 }
 
-// 科目变更时过滤教师（按特长匹配）
+// 从现有班级数据提取 distinct 值，无需额外表
+const classroomList = computed(() => {
+  const names = [...new Set(classes.value.map(c => c.location).filter(Boolean))]
+  return names.map(n => ({ name: n }))
+})
+const termList = computed(() => {
+  const names = [...new Set(classes.value.map(c => c.term).filter(Boolean))]
+  return names.map(n => ({ name: n }))
+})
+
+const filteredClasses = computed(() => {
+  let list = classes.value
+  if (filterSubjectId.value) list = list.filter(c => c.subjectId === filterSubjectId.value)
+  if (filterTerm.value) list = list.filter(c => c.term === filterTerm.value)
+  return list
+})
+
 async function onSubjectChangeForTeacher(subjectId) {
   if (!subjectId) {
     filteredTeachers.value = teachers.value
     form.teacherId = null
     return
   }
-  const subject = subjects.value.find(s => s.subjectId === subjectId)
-  if (!subject) {
-    filteredTeachers.value = teachers.value
-    return
-  }
   try {
-    filteredTeachers.value = await getTeachersBySpecialty(subject.subjectName)
+    filteredTeachers.value = await getTeachersBySubject(subjectId)
   } catch (e) {
     filteredTeachers.value = teachers.value
   }
-  form.teacherId = null  // 切换科目时清空已选教师
+  form.teacherId = null
 }
 
 function getSubjectName(subjectId) {

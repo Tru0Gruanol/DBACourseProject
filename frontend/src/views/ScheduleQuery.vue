@@ -24,8 +24,24 @@
       </el-card>
     </template>
 
-    <!-- 教师端：自己的课表 + 薪酬 -->
+    <!-- 教师端：个人信息 + 课表 + 薪酬 -->
     <template v-else-if="auth.isTeacher">
+      <!-- 个人信息卡片 -->
+      <div class="teacher-info-card" v-if="teacherInfo.name">
+        <div class="teacher-info-left">
+          <el-icon size="28" color="#5b6abf"><Avatar /></el-icon>
+          <div>
+            <div style="font-size:17px;font-weight:600;color:#1a1a1a">{{ teacherInfo.name }}</div>
+            <div style="font-size:12px;color:#909399;margin-top:2px">工号 {{ auth.userId }} ｜ {{ teacherInfo.level }}</div>
+          </div>
+        </div>
+        <div class="teacher-info-right">
+          <span style="font-size:12px;color:#909399">任教科目：</span>
+          <el-tag v-for="sn in teacherInfo.subjects" :key="sn" size="small" effect="plain" style="margin-left:4px">{{ sn }}</el-tag>
+          <span v-if="!teacherInfo.subjects.length" style="color:#c0c4cc">—</span>
+        </div>
+      </div>
+
       <el-card shadow="hover" v-loading="teacherLoading">
         <el-table v-if="teacherSchedule.length" :data="teacherSchedule" stripe border>
           <el-table-column prop="classCode" label="班级代号" width="140" />
@@ -35,8 +51,12 @@
           <el-table-column prop="term" label="期次" width="130" />
           <el-table-column prop="period" label="上课时间" min-width="180" />
           <el-table-column prop="location" label="教室" width="110" />
-          <el-table-column label="学生" width="80">
-            <template #default="{ row }">{{ row.enrolledCount || 0 }}/{{ row.capacity || 0 }}</template>
+          <el-table-column label="学生" width="100">
+            <template #default="{ row }">
+              <el-button size="small" type="primary" link @click="showClassStudents(row)">
+                {{ row.enrolledCount || 0 }} / {{ row.capacity || 0 }}
+              </el-button>
+            </template>
           </el-table-column>
           <el-table-column label="课时报酬" width="110">
             <template #default="{ row }">¥{{ (row.teacherRemuneration || 0).toFixed(2) }}</template>
@@ -56,12 +76,24 @@
 
         <el-empty v-else-if="teacherQueried" description="暂无排课记录" />
       </el-card>
+
+      <!-- 学生名单弹窗 -->
+      <el-dialog v-model="studentDialogVisible" :title="'班级 ' + selectedClassCode + ' 在读学生'" width="400px">
+        <el-table :data="classStudents" stripe border size="small" v-loading="studentListLoading" max-height="360">
+          <el-table-column prop="studentId" label="学号" width="90" />
+          <el-table-column prop="studentName" label="姓名" />
+        </el-table>
+        <el-empty v-if="!studentListLoading && !classStudents.length" description="暂无在读学生" />
+        <template #footer>
+          <el-button @click="studentDialogVisible = false">关闭</el-button>
+        </template>
+      </el-dialog>
     </template>
 
     <!-- 管理端 -->
     <template v-else>
       <!-- 步骤1：未查询 → 只显示 ID 输入 -->
-      <el-card v-if="!scheduleQueried" shadow="hover" style="max-width:460px">
+      <el-card v-if="!scheduleQueried" shadow="hover" style="min-width:460px">
         <template #header>
           <span style="font-weight:600">课表查询</span>
         </template>
@@ -156,6 +188,7 @@ import { getStudentSchedule, getTeacherSchedule } from '@/api/schedule'
 import { getSubjects } from '@/api/subject'
 import { getTeachers } from '@/api/teacher'
 import { getStudentById } from '@/api/student'
+import { getStudentsByClassCode } from '@/api/enrollment'
 import { ElMessage } from 'element-plus'
 import { Calendar, UserFilled, Avatar, Switch } from '@element-plus/icons-vue'
 
@@ -171,7 +204,7 @@ const scheduleId = ref('')
 const scheduleLoading = ref(false)
 const scheduleQueried = ref(false)
 const studentInfo = ref({ name: '' })
-const teacherInfo = ref({ name: '', level: '' })
+const teacherInfo = ref({ name: '', level: '', subjects: [] })
 
 const studentSchedule = ref([])
 const teacherSchedule = ref([])
@@ -204,9 +237,9 @@ async function querySchedule() {
   // 从教师列表获取教师姓名和等级
   if (teacherSchedule.value.length) {
     const t = teachers.value.find(t => t.teacherId === id)
-    teacherInfo.value = { name: t ? t.teacherName : '', level: t ? t.teacherLevel : '' }
+    teacherInfo.value = { name: t ? t.teacherName : '', level: t ? t.teacherLevel : '', subjects: [] }
   } else {
-    teacherInfo.value = { name: '', level: '' }
+    teacherInfo.value = { name: '', level: '', subjects: [] }
   }
 
   scheduleQueried.value = true
@@ -219,7 +252,7 @@ function resetSchedule() {
   studentSchedule.value = []
   teacherSchedule.value = []
   studentInfo.value = { name: '' }
-  teacherInfo.value = { name: '', level: '' }
+  teacherInfo.value = { name: '', level: '', subjects: [] }
 }
 
 const totalRemuneration = computed(() => {
@@ -228,6 +261,24 @@ const totalRemuneration = computed(() => {
 
 const subjects = ref([])
 const teachers = ref([])
+
+// 学生名单弹窗
+const studentDialogVisible = ref(false)
+const selectedClassCode = ref('')
+const classStudents = ref([])
+const studentListLoading = ref(false)
+
+async function showClassStudents(row) {
+  selectedClassCode.value = row.classCode
+  studentDialogVisible.value = true
+  studentListLoading.value = true
+  try {
+    classStudents.value = await getStudentsByClassCode(row.classCode)
+  } catch (e) {
+    classStudents.value = []
+  }
+  studentListLoading.value = false
+}
 
 onMounted(async () => {
   try {
@@ -249,6 +300,18 @@ onMounted(async () => {
     const id = Number(auth.userId)
     try { teacherSchedule.value = await getTeacherSchedule(id) } catch (e) {}
     teacherLoading.value = false
+    // 填充教师个人信息
+    const t = teachers.value.find(t => t.teacherId === id)
+    if (t) {
+      teacherInfo.value = {
+        name: t.teacherName || '',
+        level: t.teacherLevel || '',
+        subjects: (t.subjectIds || []).map(sid => {
+          const s = subjects.value.find(s => s.subjectId === sid)
+          return s ? s.subjectName : String(sid)
+        })
+      }
+    }
   }
 })
 
@@ -264,6 +327,25 @@ function getTeacherName(teacherId) {
 </script>
 
 <style scoped>
+.teacher-info-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  border: 1px solid #e8e8ed;
+  border-radius: 4px;
+  padding: 16px 24px;
+  margin-bottom: 20px;
+}
+.teacher-info-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.teacher-info-right {
+  display: flex;
+  align-items: center;
+}
 .salary-summary {
   margin-top: 20px;
   background: #fafafc;

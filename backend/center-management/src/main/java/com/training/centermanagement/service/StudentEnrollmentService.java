@@ -8,12 +8,14 @@ import com.training.centermanagement.mapper.AccountMapper;
 import com.training.centermanagement.mapper.ClassesMapper;
 import com.training.centermanagement.mapper.StudentEnrollmentMapper;
 import com.training.centermanagement.mapper.StudentMapper;
+import com.training.centermanagement.mapper.NotificationMapper;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.Date;
+import java.util.*;
 
 @Service
 public class StudentEnrollmentService {
@@ -25,7 +27,9 @@ public class StudentEnrollmentService {
     @Autowired
     private AccountMapper accountMapper;
     @Autowired
-    private StudentMapper studentMapper;   // 用于检查学生是否存在
+    private StudentMapper studentMapper;
+    @Autowired
+    private NotificationService notificationService;
 
     @Transactional(rollbackFor = Exception.class)
     public String processEnrollment(Integer studentId, String classCode, BigDecimal payment) {
@@ -110,48 +114,107 @@ public class StudentEnrollmentService {
         return "报名成功！多表事务已提交。已交款：" + payment + " 元。";
     }
 
+    // 管理端直接退课 → 立即退款
     @Transactional(rollbackFor = Exception.class)
     public String cancelEnrollment(Integer studentId, String classCode) {
-        // 1. 检查报名是否存在且为在读状态
         StudentEnrollment enrollment = studentEnrollmentMapper.selectByStudentAndClass(studentId, classCode);
-        if (enrollment == null) {
-            return "退课失败：该学生未报名此班级或已退课！";
-        }
+        if (enrollment == null) return "退课失败：该学生未报名此班级或已退课！";
 
-        // 2. 查询该报名的累计实缴总额（含历史退款冲销后的净值）
-        BigDecimal totalPaid = accountMapper.getTotalPaidByStudentAndClass(studentId, classCode);
-
-        // 3. 查询班级应缴学费
         Classes cls = classesMapper.getClassByCode(classCode);
-        if (cls == null) {
-            return "退课失败：班级不存在！";
-        }
-        BigDecimal fee = cls.getFee();
+        if (cls == null) return "退课失败：班级不存在！";
 
-        // 4. 退课即退款：退还本课程的全部已缴金额
-        String refundMsg = "";
+        BigDecimal totalPaid = accountMapper.getTotalPaidByStudentAndClass(studentId, classCode);
         if (totalPaid.compareTo(BigDecimal.ZERO) > 0) {
-            // 全额退款：插入负向冲销流水
+            Account refund = new Account();
+            refund.setAccountDate(new Date());
+            refund.setClassCode(classCode);
+            refund.setStudentId(studentId);
+            refund.setSubjectId(cls.getSubjectId());
+            refund.setAmountPaid(totalPaid.negate());
+            accountMapper.insertAccount(refund);
+            accountMapper.updateEnrollmentAmountPaid(studentId, classCode, totalPaid.negate());
+        }
+        studentEnrollmentMapper.updateStatus(studentId, classCode, "cancelled");
+        classesMapper.decrementEnrolledCount(classCode);
+
+        notificationService.send(studentId, "student",
+            "退课通知", "管理员已将您从班级 " + classCode + " 退课，已退款 " + totalPaid + " 元。");
+        return "退课成功！已退款 " + totalPaid + " 元。";
+    }
+
+    // 学生申请退课 → 状态改为 pending_cancel，等待管理端审批
+    public String requestCancel(Integer studentId, String classCode) {
+        StudentEnrollment enrollment = studentEnrollmentMapper.selectByStudentAndClass(studentId, classCode);
+        if (enrollment == null) return "申请失败：该学生未报名此班级或已退课！";
+
+        studentEnrollmentMapper.updateStatus(studentId, classCode, "pending_cancel");
+        Classes cls = classesMapper.getClassByCode(classCode);
+        String cn = cls != null ? cls.getClassCode() : classCode;
+        notificationService.send(0, "admin",
+            "退课申请", "学生 " + studentId + " 申请退出班级 " + cn + "，请到收费管理审批");
+        return "退课申请已提交，等待管理员审批。";
+    }
+
+    // 管理员审批通过 → 执行退款 + 通知学生
+    @Transactional(rollbackFor = Exception.class)
+    public String approveCancel(Integer studentId, String classCode) {
+        StudentEnrollment enrollment = studentEnrollmentMapper.selectAnyByStudentAndClass(studentId, classCode);
+        if (enrollment == null || !"pending_cancel".equals(enrollment.getStatus())) {
+            return "审批失败：无待审批的退课申请！";
+        }
+        Classes cls = classesMapper.getClassByCode(classCode);
+        BigDecimal totalPaid = accountMapper.getTotalPaidByStudentAndClass(studentId, classCode);
+        if (totalPaid.compareTo(BigDecimal.ZERO) > 0) {
             Account refundAccount = new Account();
             refundAccount.setAccountDate(new Date());
             refundAccount.setClassCode(classCode);
             refundAccount.setStudentId(studentId);
-            refundAccount.setSubjectId(cls.getSubjectId());
-            refundAccount.setAmountPaid(totalPaid.negate()); // 全额负向冲销
+            refundAccount.setSubjectId(cls != null ? cls.getSubjectId() : 0);
+            refundAccount.setAmountPaid(totalPaid.negate());
             accountMapper.insertAccount(refundAccount);
-
-            // 同步更新 enrollment 的 amount_paid（归零）
             accountMapper.updateEnrollmentAmountPaid(studentId, classCode, totalPaid.negate());
-
-            refundMsg = "，已退款 " + totalPaid + " 元（本课程报名费全额退还）";
         }
-
-        // 5. 标记报名为已退课（不再物理删除）
-        studentEnrollmentMapper.cancelEnrollment(studentId, classCode);
-
-        // 6. 释放班级名额
+        studentEnrollmentMapper.updateStatus(studentId, classCode, "cancelled");
         classesMapper.decrementEnrolledCount(classCode);
+        // 通知学生
+        notificationService.send(studentId, "student",
+            "退课已通过", "您退出班级 " + classCode + " 的申请已审批通过，已退款 " + totalPaid + " 元。");
+        return "审批通过，已退款 " + totalPaid + " 元。";
+    }
 
-        return "退课成功！学生 " + studentId + " 已从班级 " + classCode + " 退出。" + refundMsg;
+    // 管理员拒绝 → 恢复 active + 通知学生
+    public String rejectCancel(Integer studentId, String classCode) {
+        StudentEnrollment enrollment = studentEnrollmentMapper.selectAnyByStudentAndClass(studentId, classCode);
+        if (enrollment == null || !"pending_cancel".equals(enrollment.getStatus())) {
+            return "审批失败：无待审批的退课申请！";
+        }
+        studentEnrollmentMapper.updateStatus(studentId, classCode, "active");
+        notificationService.send(studentId, "student",
+            "退课被拒绝", "您退出班级 " + classCode + " 的申请已被管理员拒绝，如有疑问请联系培训中心。");
+        return "已拒绝该退课申请。";
+    }
+
+    // 查询所有待审批的退课
+    public List<Map<String, Object>> getPendingCancels() {
+        List<StudentEnrollment> list = studentEnrollmentMapper.getPendingCancels();
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (StudentEnrollment e : list) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("studentId", e.getStudentId());
+            m.put("classCode", e.getClassCode());
+            m.put("enrollmentTime", e.getEnrollmentTime());
+            m.put("amountPaid", e.getAmountPaid());
+            // 查学生姓名
+            Student s = studentMapper.selectStudentById(e.getStudentId());
+            m.put("studentName", s != null ? s.getStudentName() : "");
+            // 查班级信息
+            Classes c = classesMapper.getClassByCode(e.getClassCode());
+            m.put("fee", c != null ? c.getFee() : BigDecimal.ZERO);
+            m.put("subjectId", c != null ? c.getSubjectId() : null);
+            // 查实缴总额
+            m.put("totalPaid", accountMapper.getTotalPaidByStudentAndClass(e.getStudentId(), e.getClassCode()));
+            result.add(m);
+        }
+        return result;
     }
 }

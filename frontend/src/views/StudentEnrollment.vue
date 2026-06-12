@@ -8,7 +8,7 @@
     <!-- ======== 管理端 ======== -->
     <template v-if="auth.isAdmin">
       <!-- 步骤1：未查询学生 → 只显示学号输入 -->
-      <el-card v-if="!adminReady" shadow="hover" style="max-width:460px">
+      <el-card v-if="!adminReady" shadow="hover" style="min-width:460px">
         <template #header>
           <span style="font-weight:600">查询学生</span>
         </template>
@@ -44,7 +44,10 @@
           <el-form :model="form" label-width="120px">
             <el-form-item label="选择科目">
               <el-select v-model="selectedSubjectId" placeholder="请选择科目" @change="onSubjectChange" clearable style="width:100%">
-                <el-option v-for="sub in subjects" :key="sub.subjectId" :label="sub.subjectName" :value="sub.subjectId" />
+                <el-option v-for="sub in subjects" :key="sub.subjectId"
+                  :label="sub.subjectName + (enrolledSubjectIds.includes(sub.subjectId) ? '（已报）' : '')"
+                  :value="sub.subjectId"
+                  :disabled="enrolledSubjectIds.includes(sub.subjectId)" />
               </el-select>
             </el-form-item>
             <el-form-item label="选择班级">
@@ -101,16 +104,9 @@
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="80" fixed="right">
+            <el-table-column label="操作" width="80" fixed="right" align="center">
               <template #default="{ row }">
-                <el-button
-                  v-if="row.status === 'active'"
-                  size="small"
-                  type="danger"
-                  @click="adminCancelEnrollment(row)"
-                >
-                  退课
-                </el-button>
+                <el-button v-if="row.status === 'active'" size="small" type="danger" @click="adminCancelEnrollment(row)">退课</el-button>
                 <span v-else style="color:#909399;font-size:12px">已退款</span>
               </template>
             </el-table-column>
@@ -120,7 +116,7 @@
       </template>
     </template>
 
-    <!-- ======== 学生端：只显示报名表单 ======== -->
+    <!-- ======== 学生端 ======== -->
     <template v-else>
       <el-card shadow="hover">
         <template #header>
@@ -129,7 +125,10 @@
         <el-form :model="form" label-width="120px">
           <el-form-item label="选择科目">
             <el-select v-model="selectedSubjectId" placeholder="请选择科目" @change="onSubjectChange" clearable style="width:100%">
-              <el-option v-for="sub in subjects" :key="sub.subjectId" :label="sub.subjectName" :value="sub.subjectId" />
+              <el-option v-for="sub in subjects" :key="sub.subjectId"
+                :label="sub.subjectName + (enrolledSubjectIds.includes(sub.subjectId) ? '（已报）' : '')"
+                :value="sub.subjectId"
+                :disabled="enrolledSubjectIds.includes(sub.subjectId)" />
             </el-select>
           </el-form-item>
           <el-form-item label="选择班级">
@@ -153,7 +152,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { getSubjects } from '@/api/subject'
 import { getTeachers } from '@/api/teacher'
@@ -186,6 +185,12 @@ const adminLookingUp = ref(false)
 const adminReady = ref(false)
 const adminEnrollments = ref([])
 const adminEnrollLoading = ref(false)
+const myEnrollments = ref([])  // 学生端自己的报名记录
+
+const enrolledSubjectIds = computed(() => {
+  const list = auth.isAdmin ? adminEnrollments.value : myEnrollments.value
+  return list.filter(e => e.status === 'active').map(e => e.subjectId).filter(Boolean)
+})
 
 async function adminLookup() {
   if (!adminStudentId.value) {
@@ -196,16 +201,19 @@ async function adminLookup() {
   try {
     // 先查学生信息获取姓名
     const student = await getStudentById(Number(adminStudentId.value))
-    adminStudentInfo.value = student || { studentName: '' }
-    adminReady.value = true
-    form.studentId = String(adminStudentId.value)
-    loadAdminEnrollments()
+    if (!student || !student.studentName) {
+      // 学生不存在，阻止进入下一步
+      ElMessage.error('未找到学号为 ' + adminStudentId.value + ' 的学生，请先到「学生管理」中新增该学生')
+      adminReady.value = false
+    } else {
+      adminStudentInfo.value = student
+      adminReady.value = true
+      form.studentId = String(adminStudentId.value)
+      loadAdminEnrollments()
+    }
   } catch (e) {
-    // 学生不存在也允许继续（可能是新学生）
-    adminStudentInfo.value = { studentName: '' }
-    adminReady.value = true
-    form.studentId = String(adminStudentId.value)
-    adminEnrollments.value = []
+    ElMessage.error('查询失败，请检查网络或稍后重试')
+    adminReady.value = false
   }
   adminLookingUp.value = false
 }
@@ -253,12 +261,14 @@ async function adminCancelEnrollment(row) {
 onMounted(async () => {
   if (auth.isStudent && auth.userId) {
     form.studentId = auth.userId
+    // 加载学生已有报名（标记已选科目用）
+    try {
+      const data = await getStudentSummary(Number(auth.userId))
+      myEnrollments.value = data && data.enrollments ? data.enrollments : []
+    } catch (e) {}
   }
   try {
-    const [subList, teaList] = await Promise.all([
-      getSubjects(),
-      getTeachers(),
-    ])
+    const [subList, teaList] = await Promise.all([getSubjects(), getTeachers()])
     subjects.value = subList
     teachers.value = teaList
   } catch (e) {}
@@ -314,6 +324,12 @@ const handleSubmit = async () => {
     }
     if (auth.isAdmin && adminReady.value) {
       loadAdminEnrollments()
+    }
+    if (auth.isStudent) {
+      try {
+        const data = await getStudentSummary(Number(auth.userId))
+        myEnrollments.value = data && data.enrollments ? data.enrollments : []
+      } catch (e) {}
     }
   } catch (error) {}
   submitting.value = false

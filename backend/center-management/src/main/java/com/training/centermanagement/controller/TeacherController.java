@@ -19,10 +19,11 @@ public class TeacherController {
         return teacherService.getAllTeachers();
     }
 
+    // 根据科目ID精确查询能教该科目的所有教师
     // 固定路径必须在 {teacherId} 之前
-    @GetMapping("/by-specialty")
-    public List<Teacher> getTeachersBySpecialty(@RequestParam String keyword) {
-        return teacherService.getTeachersBySpecialtyKeyword(keyword);
+    @GetMapping("/by-subject/{subjectId}")
+    public List<Teacher> getTeachersBySubjectId(@PathVariable Integer subjectId) {
+        return teacherService.getTeachersBySubjectId(subjectId);
     }
 
     // 教师薪酬汇总

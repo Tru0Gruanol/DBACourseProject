@@ -49,33 +49,72 @@
 
     <!-- 底部用户信息区 -->
     <div style="padding:12px 16px;border-top:1px solid #eeeef2">
-      <!-- 学生/教师显示自己的ID号 -->
-      <div v-if="auth.userId && auth.userId !== 'admin'" style="margin-bottom:8px;display:flex;align-items:center;gap:6px">
-        <span style="font-size:11px;color:#bbb">{{ auth.isStudent ? '学号' : '教师号' }}</span>
-        <span style="font-size:14px;font-weight:600;color:#5b6abf">{{ auth.userId }}</span>
+      <!-- 学生/教师：通知铃铛 -->
+      <div v-if="auth.isStudent || auth.isTeacher" style="margin-bottom:8px;display:flex;align-items:center;gap:8px">
+        <el-popover placement="right-start" :width="320" trigger="click" @show="loadNotifications">
+          <template #reference>
+            <el-badge :value="unreadCount" :hidden="unreadCount===0" :max="99">
+              <el-button size="small" text style="padding:2px">
+                <el-icon size="18"><Bell /></el-icon>
+              </el-button>
+            </el-badge>
+          </template>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <b style="font-size:14px">通知</b>
+            <el-button size="small" text type="primary" @click.stop="readAll" v-if="unreadCount>0">全部已读</el-button>
+          </div>
+          <div v-if="notifications.length===0" style="color:#909399;font-size:13px;text-align:center;padding:20px 0">暂无通知</div>
+          <div v-for="n in notifications" :key="n.id"
+            style="padding:8px 0;border-bottom:1px solid #f2f2f6;cursor:pointer"
+            :style="{ opacity: n.isRead ? 0.5 : 1 }"
+            @click="readOne(n)">
+            <div style="font-size:13px;font-weight:500">{{ n.title }}</div>
+            <div style="font-size:12px;color:#909399;margin-top:2px">{{ n.content }}</div>
+            <div style="font-size:11px;color:#c0c4cc;margin-top:2px">{{ formatTime(n.createdAt) }}</div>
+          </div>
+        </el-popover>
+        <div>
+          <div style="font-size:12px;color:#bbb">{{ auth.isStudent ? '学号' : '教师号' }} {{ auth.userId }}</div>
+          <div style="font-size:12px;color:#606266">{{ auth.userName }}</div>
+        </div>
       </div>
 
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <span style="font-size:13px;color:#606266">
-          {{ roleLabel }}
-          <template v-if="auth.userName && auth.userName !== '系统管理员'">
-            &nbsp;{{ auth.userName }}
-          </template>
-        </span>
+      <!-- 管理员：铃铛 + 用户名 -->
+      <div v-if="auth.isAdmin" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <el-popover placement="right-start" :width="320" trigger="click" @show="loadNotifications">
+            <template #reference>
+              <el-badge :value="unreadCount" :hidden="unreadCount===0" :max="99">
+                <el-button size="small" text style="padding:2px"><el-icon size="18"><Bell /></el-icon></el-button>
+              </el-badge>
+            </template>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+              <b style="font-size:14px">通知</b>
+              <el-button size="small" text type="primary" @click.stop="readAll" v-if="unreadCount>0">全部已读</el-button>
+            </div>
+            <div v-if="notifications.length===0" style="color:#909399;font-size:13px;text-align:center;padding:20px 0">暂无通知</div>
+            <div v-for="n in notifications" :key="n.id"
+              style="padding:8px 0;border-bottom:1px solid #f2f2f6;cursor:pointer"
+              :style="{ opacity: n.isRead ? 0.5 : 1 }"
+              @click="readOne(n)">
+              <div style="font-size:13px;font-weight:500">{{ n.title }}</div>
+              <div style="font-size:12px;color:#909399;margin-top:2px">{{ n.content }}</div>
+              <div style="font-size:11px;color:#c0c4cc;margin-top:2px">{{ formatTime(n.createdAt) }}</div>
+            </div>
+          </el-popover>
+          <span style="font-size:13px;color:#606266">🔧 管理员</span>
+        </div>
         <el-button size="small" text type="danger" @click="handleLogout" style="padding:0 4px">退出</el-button>
       </div>
 
-      <!-- 学生/教师：修改密码入口 -->
-      <el-button
-        v-if="auth.isStudent || auth.isTeacher"
-        size="small"
-        text
-        @click="openChangePasswordDialog"
-        style="font-size:12px;color:#909399;padding:0"
-      >
-        <el-icon style="margin-right:2px"><Lock /></el-icon>
-        修改密码
-      </el-button>
+      <!-- 学生/教师：退出 + 改密 -->
+      <div v-if="auth.isStudent || auth.isTeacher" style="display:flex;align-items:center;gap:8px;margin-top:4px">
+        <el-button size="small" text type="danger" @click="handleLogout" style="padding:0 4px">退出</el-button>
+        <el-button size="small" text @click="openChangePasswordDialog" style="font-size:12px;color:#909399;padding:0">
+          <el-icon style="margin-right:2px"><Lock /></el-icon>
+          修改密码
+        </el-button>
+      </div>
     </div>
 
     <!-- 修改密码对话框 -->
@@ -106,7 +145,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { changePassword as changePwdApi } from '@/api/auth'
 import { ElMessage } from 'element-plus'
-import { School, EditPen, Notebook, Avatar, UserFilled, Money, Calendar, Lock } from '@element-plus/icons-vue'
+import { School, EditPen, Notebook, Avatar, UserFilled, Money, Calendar, Lock, Bell } from '@element-plus/icons-vue'
+import { getNotifications, getUnreadCount, markRead, markAllRead } from '@/api/notification'
 
 const route = useRoute()
 const router = useRouter()
@@ -132,6 +172,53 @@ function handleLogout() {
   auth.logout()
   router.push('/login')
 }
+
+// ======== 通知 ========
+const notifications = ref([])
+const unreadCount = ref(0)
+
+function _uid() { return auth.isAdmin ? 0 : Number(auth.userId) }
+
+async function loadNotifications() {
+  try {
+    notifications.value = await getNotifications(_uid(), auth.role)
+    unreadCount.value = notifications.value.filter(n => !n.isRead).length
+  } catch (e) {}
+}
+
+async function readOne(n) {
+  if (!n.isRead) {
+    try { await markRead(n.id); n.isRead = 1; unreadCount.value-- } catch (e) {}
+  }
+}
+
+async function readAll() {
+  const uid = _uid()
+  if (uid == null || isNaN(uid)) return
+  try {
+    await markAllRead(uid, auth.role)
+    notifications.value.forEach(n => n.isRead = 1)
+    unreadCount.value = 0
+  } catch (e) {}
+}
+
+function formatTime(t) {
+  if (!t) return ''
+  const d = new Date(t)
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+}
+
+// 定时刷新未读数
+import { onMounted, onUnmounted } from 'vue'
+let unreadTimer = null
+onMounted(async () => {
+  const uid = auth.isAdmin ? 0 : Number(auth.userId)
+  try { const r = await getUnreadCount(uid, auth.role); unreadCount.value = r.count || 0 } catch (e) {}
+  unreadTimer = setInterval(async () => {
+    try { const r = await getUnreadCount(uid, auth.role); unreadCount.value = r.count || 0 } catch (e) {}
+  }, 30000)
+})
+onUnmounted(() => { if (unreadTimer) clearInterval(unreadTimer) })
 
 // ======== 修改密码 ========
 const cpDialogVisible = ref(false)

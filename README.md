@@ -114,10 +114,9 @@
 DBACourseProject
 │
 ├─ database/                          # 数据库脚本
-│   ├─ create_table.sql               #   建表脚本（6 张表，含外键与约束）
-│   ├─ insert_test_data.sql           #   测试数据（4 教师 + 4 科目 + 8 班级 + 5 学生 + 7 报名 + 7 账目）
-│   ├─ migrate_day07.sql              #   students 表增加 registration_time
-│   └─ migrate_day08.sql              #   students / teachers 表增加 password 字段
+│   ├─ schema.sql                     #   主表结构（6 张实体表，对应 E-R 图）
+│   ├─ features.sql                   #   功能表（teacher_subjects 桥接 + notifications 通知）
+│   └─ seed_data.sql                  #   种子数据（8 教师 + 8 科目 + 17 班级 + 15 学生）
 │
 ├─ backend/                           # 后端 Spring Boot 项目
 │   └─ center-management/
@@ -321,7 +320,7 @@ Base URL: http://localhost:8080/api
 |------|------|------|
 | GET | `/api/teachers` | 获取全部教师列表 |
 | GET | `/api/teachers/salaries` | 获取全部教师薪酬汇总 |
-| GET | `/api/teachers/by-specialty?specialty=` | 按特长查询教师 |
+| GET | `/api/teachers/by-subject/{subjectId}` | 按任教科目精确查询教师 |
 | GET | `/api/teachers/{teacherId}` | 按 ID 查询教师 |
 
 ### 6.3 科目模块 — `/api/subjects`
@@ -418,7 +417,7 @@ Base URL: http://localhost:8080/api
 | **学生报名** | `/enrollment` | 学生/管理员 | 学生端：选科目->选班级->选填缴费->提交；管理端：先输学号->显示学生信息->无缴费金额报名表单->已选课程列表+退课 |
 | **已选课程** | `/my-courses` | 学生 | 课程列表（科目/老师/级别/学费/已缴/状态）+ 补缴弹窗 + 退课 + 汇总卡片 + 催费提示 |
 | **科目管理** | `/subjects` | 管理员 | 科目 CRUD（表格 + 弹窗表单） |
-| **班级管理** | `/classes` | 管理员 | 班级列表（选科后教师特长联动过滤、enrolledCount 编辑时禁用、满员标红） |
+| **班级管理** | `/classes` | 管理员 | 班级列表（选科后按任教科目精确过滤教师、enrolledCount 编辑时禁用、满员标红） |
 | **教师管理** | `/teachers` | 管理员 | 教师 CRUD（等级下拉选择，删除前 FK 检查） |
 | **收费管理** | `/fee` | 管理员 | 四标签页：缴费查询（含退课）+ 流水记录 + 催费列表 + 教师薪酬 |
 | **课表查询** | `/schedule` | 全部 | 学生/教师：自动加载个人课表；管理员：输入学号/工号->自动识别类型->对应课表+人员信息 |
@@ -444,13 +443,9 @@ Base URL: http://localhost:8080/api
 2. 使用 MySQL Workbench 或命令行执行：
 
 ```sql
--- 建表
-source database/create_table.sql;
--- 测试数据
-source database/insert_test_data.sql;
--- 迁移脚本（password 字段等）
-source database/migrate_day07.sql;
-source database/migrate_day08.sql;
+source database/schema.sql;
+source database/features.sql;
+source database/seed_data.sql;
 ```
 
 ### 8.3 后端启动

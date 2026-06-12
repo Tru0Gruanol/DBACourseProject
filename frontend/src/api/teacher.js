@@ -8,8 +8,9 @@ export function getTeacherById(id) {
   return request.get(`/teachers/${id}`)
 }
 
-export function getTeachersBySpecialty(keyword) {
-  return request.get('/teachers/by-specialty', { params: { keyword } })
+// 根据科目ID精确查询能教该科目的所有教师
+export function getTeachersBySubject(subjectId) {
+  return request.get(`/teachers/by-subject/${subjectId}`)
 }
 
 export function addTeacher(data) {

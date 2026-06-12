@@ -26,7 +26,8 @@
       </el-table-column>
       <el-table-column label="缴费状态" width="110">
         <template #default="{ row }">
-          <span v-if="row.status !== 'active'" style="color:#909399">—</span>
+          <span v-if="row.status === 'pending_cancel'" style="color:#E6A23C">审批中</span>
+          <span v-else-if="row.status !== 'active'" style="color:#909399">—</span>
           <span v-else-if="row.arrears > 0" style="color:#F56C6C;font-weight:500">
             ⚠ 欠费 ¥{{ row.arrears.toFixed(2) }}
           </span>
@@ -35,31 +36,21 @@
       </el-table-column>
       <el-table-column label="报名状态" width="90">
         <template #default="{ row }">
-          <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
-            {{ row.status === 'active' ? '在读' : '已退课' }}
+          <el-tag :type="row.status === 'active' ? 'success' : row.status === 'pending_cancel' ? 'warning' : 'info'" size="small">
+            {{ row.status === 'active' ? '在读' : row.status === 'pending_cancel' ? '待审批' : '已退课' }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="140" fixed="right">
+      <el-table-column label="操作" width="160" fixed="right" align="center">
         <template #default="{ row }">
           <template v-if="row.status === 'active'">
-            <el-button
-              v-if="row.arrears > 0"
-              size="small"
-              type="primary"
-              @click="openPayDialog(row)"
-            >
-              补缴
-            </el-button>
-            <el-button
-              size="small"
-              type="danger"
-              @click="handleCancel(row)"
-            >
-              退课
-            </el-button>
+            <div style="display:flex;align-items:center;justify-content:center;gap:4px">
+              <el-button v-if="row.arrears > 0" size="small" type="primary" @click="openPayDialog(row)">补缴</el-button>
+              <el-button size="small" type="danger" @click="handleCancel(row)">申请退课</el-button>
+            </div>
           </template>
-          <span v-else style="color:#909399;font-size:12px">已退课（已退款）</span>
+          <span v-else-if="row.status === 'pending_cancel'" style="color:#E6A23C;font-size:12px">等待审批</span>
+          <span v-else style="color:#909399;font-size:12px">已退课</span>
         </template>
       </el-table-column>
     </el-table>
@@ -79,6 +70,9 @@
         <b :style="{ color: summary.totalFee > summary.totalPaid ? '#F56C6C' : '#67C23A' }">
           {{ summary.totalFee > summary.totalPaid ? '¥' + (summary.totalFee - summary.totalPaid).toFixed(2) : '已结清' }}
         </b>
+      </div>
+      <div class="summary-item">
+        <el-button type="primary" size="small" @click="showAllInvoice">全部收据</el-button>
       </div>
     </div>
 
@@ -119,14 +113,43 @@
         <el-button type="primary" :loading="paying" @click="handlePay">确认补缴</el-button>
       </template>
     </el-dialog>
+
+    <!-- 全部收据弹窗 -->
+    <el-dialog v-model="invoiceVisible" title="全部收据" width="580px" :close-on-click-modal="false">
+      <div v-if="allPayments.length" style="font-size:14px">
+        <div style="margin-bottom:4px"><b>学生：</b>{{ auth.userName || auth.userId }}（{{ auth.userId }}）</div>
+        <el-table :data="allPayments" stripe border size="small" max-height="360">
+          <el-table-column label="班级" prop="classCode" />
+          <el-table-column label="缴费日期" width="120">
+            <template #default="{ row }">{{ formatDate(row.accountDate) }}</template>
+          </el-table-column>
+          <el-table-column label="金额（元）" width="110" align="right">
+            <template #default="{ row }">
+              <span :style="{ color: row.amountPaid < 0 ? '#F56C6C' : '#1a1a1a' }">¥{{ row.amountPaid.toFixed(2) }}</span>
+            </template>
+          </el-table-column>
+        </el-table>
+        <div style="display:flex;justify-content:space-between;margin-top:14px;padding-top:10px;border-top:1px solid #eee">
+          <span>应缴总计 <b>¥{{ summary.totalFee.toFixed(2) }}</b></span>
+          <span>已缴总计 <b style="color:#67C23A">¥{{ summary.totalPaid.toFixed(2) }}</b></span>
+          <span>尚欠 <b :style="{ color: summary.totalFee > summary.totalPaid ? '#F56C6C' : '#67C23A' }">¥{{ (summary.totalFee - summary.totalPaid).toFixed(2) }}</b></span>
+        </div>
+      </div>
+      <el-empty v-else description="暂无缴费记录" />
+      <template #footer>
+        <el-button type="primary" @click="doPrintReceipt">打印</el-button>
+        <el-button @click="invoiceVisible = false">取消</el-button>
+      </template>
+    </el-dialog>
+
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { getStudentSummary, payFee } from '@/api/account'
-import { cancelEnrollment } from '@/api/enrollment'
+import { getStudentSummary, payFee, getInvoice } from '@/api/account'
+import { requestCancelEnrollment } from '@/api/enrollment'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Notebook } from '@element-plus/icons-vue'
 
@@ -159,15 +182,62 @@ async function loadData() {
   loading.value = false
 }
 
-// ======== 退课 ========
+// ======== 全部收据 ========
+const invoiceVisible = ref(false)
+const allPayments = ref([])
+
+async function showAllInvoice() {
+  invoiceVisible.value = true
+  allPayments.value = []
+  for (const e of enrollments.value) {
+    if (e.status !== 'active') continue
+    try {
+      const inv = await getInvoice(Number(auth.userId), e.classCode)
+      if (inv && inv.payments) {
+        for (const p of inv.payments) allPayments.value.push({ ...p, classCode: e.classCode })
+      }
+    } catch (ex) {}
+  }
+}
+
+function doPrintReceipt() {
+  if (!allPayments.value.length) return
+  const rows = allPayments.value.map(p =>
+    `<tr><td>${p.classCode}</td><td>${formatDate(p.accountDate)}</td><td style="text-align:right">¥${p.amountPaid.toFixed(2)}</td></tr>`
+  ).join('')
+  const tf = summary.value.totalFee.toFixed(2)
+  const tp = summary.value.totalPaid.toFixed(2)
+  const debt = (summary.value.totalFee - summary.value.totalPaid).toFixed(2)
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>缴费收据</title><style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;padding:32px;color:#1a1a1a}
+    h2{text-align:center;border-bottom:2px solid #1a1a1a;padding-bottom:12px;margin-bottom:8px}
+    .sub{text-align:center;color:#666;font-size:13px;margin-bottom:24px}
+    table{width:100%;border-collapse:collapse;margin-bottom:20px}
+    th,td{border:1px solid #555;padding:10px 14px;font-size:14px}
+    th{background:#e8e8e8;text-align:center;font-weight:600}
+    td{text-align:center}
+    .sum{display:flex;justify-content:space-between;border-top:3px double #1a1a1a;padding-top:16px;font-size:15px;font-weight:600}
+    @media print{body{padding:20px}}
+  </style></head><body>
+    <h2>缴费收据</h2>
+    <div class="sub">学生：${auth.userName||auth.userId}（学号 ${auth.userId}）｜ 开票日期：${new Date().toLocaleDateString('zh-CN')}</div>
+    <table><thead><tr><th>班级</th><th>缴费日期</th><th>金额（元）</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="sum"><span>应缴合计 ¥${tf}</span><span>已缴合计 ¥${tp}</span><span>尚欠 ¥${debt}</span></div>
+  </body></html>`
+  const w = window.open('', '_blank', 'width=640,height=520')
+  if (w) { w.document.write(html); w.document.close() }
+  else { ElMessage.warning('弹窗被拦截，请允许此网站弹出窗口后重试') }
+}
+
 async function handleCancel(row) {
   try {
     await ElMessageBox.confirm(
-      `确定要退出班级「${row.classCode}」(${row.subjectName}) 吗？已缴金额 ¥${(row.totalPaid || 0).toFixed(2)} 将全额退还。`,
-      '确认退课',
-      { type: 'warning', confirmButtonText: '确认退课', cancelButtonText: '取消' }
+      `确定申请退出班级「${row.classCode}」(${row.subjectName}) 吗？申请提交后将由管理员审批，审批通过后自动退款。`,
+      '申请退课',
+      { type: 'warning', confirmButtonText: '确认申请', cancelButtonText: '取消' }
     )
-    const result = await cancelEnrollment(Number(auth.userId), row.classCode)
+    const result = await requestCancelEnrollment(Number(auth.userId), row.classCode)
     ElMessage.success(result)
     loadData()
   } catch (e) {}
@@ -207,6 +277,15 @@ async function handlePay() {
 onMounted(() => {
   loadData()
 })
+
+function formatDate(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
 </script>
 
 <style scoped>

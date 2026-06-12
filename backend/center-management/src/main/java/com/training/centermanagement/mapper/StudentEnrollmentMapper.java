@@ -59,4 +59,18 @@ public interface StudentEnrollmentMapper {
     // 物理删除某班级的所有报名记录（删除班级时用）
     @Delete("DELETE FROM student_enrollments WHERE class_code = #{classCode}")
     int deleteByClassCode(String classCode);
+
+    // 查询某班级的在读学生（含姓名，教师端查看用）
+    @Select("SELECT s.student_id AS studentId, s.student_name AS studentName " +
+            "FROM student_enrollments e JOIN students s ON e.student_id = s.student_id " +
+            "WHERE e.class_code = #{classCode} AND e.status = 'active'")
+    List<java.util.Map<String, Object>> getActiveStudentsByClassCode(String classCode);
+
+    // 更新报名状态
+    @Update("UPDATE student_enrollments SET status=#{status} WHERE student_id=#{studentId} AND class_code=#{classCode}")
+    int updateStatus(@Param("studentId") Integer studentId, @Param("classCode") String classCode, @Param("status") String status);
+
+    // 查询所有待审批的退课申请
+    @Select("SELECT * FROM student_enrollments WHERE status='pending_cancel' ORDER BY enrollment_time DESC")
+    List<StudentEnrollment> getPendingCancels();
 }

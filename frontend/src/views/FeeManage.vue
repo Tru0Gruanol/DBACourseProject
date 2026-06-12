@@ -5,7 +5,7 @@
       <h2>收费管理</h2>
     </div>
 
-    <el-tabs v-model="activeTab" type="border-card">
+    <el-tabs v-model="activeTab" type="border-card" @tab-change="onTabChange">
       <!-- ==================== 缴费查询 ==================== -->
       <el-tab-pane label="缴费查询" name="query">
         <div class="query-bar">
@@ -181,6 +181,32 @@
         </el-table>
         <el-empty v-else-if="salaryQueried" description="暂无教师数据" />
       </el-tab-pane>
+
+      <!-- 退课审批 -->
+      <el-tab-pane label="退课审批" name="approvals">
+        <div class="query-bar" style="margin-bottom:16px">
+          <el-button type="primary" :loading="approvalLoading" @click="loadPendingCancels">刷新列表</el-button>
+          <span style="font-size:13px;color:#909399;margin-left:12px" v-if="pendingCancels.length">共 {{ pendingCancels.length }} 条待审批</span>
+        </div>
+        <el-table :data="pendingCancels" stripe border v-loading="approvalLoading">
+          <el-table-column prop="studentId" label="学号" width="90" />
+          <el-table-column prop="studentName" label="学生姓名" width="100" />
+          <el-table-column prop="classCode" label="班级代号" width="140" />
+          <el-table-column label="已缴金额" width="100">
+            <template #default="{ row }">¥{{ (row.totalPaid || 0).toFixed(2) }}</template>
+          </el-table-column>
+          <el-table-column label="申请时间" width="160">
+            <template #default="{ row }">{{ formatDate(row.enrollmentTime) }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="180">
+            <template #default="{ row }">
+              <el-button size="small" type="success" @click="approveCancel(row)">通过</el-button>
+              <el-button size="small" type="danger" @click="rejectCancel(row)">拒绝</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-empty v-if="!approvalLoading && !pendingCancels.length" description="暂无待审批的退课申请" />
+      </el-tab-pane>
     </el-tabs>
   </div>
 </template>
@@ -188,13 +214,17 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { getAllAccounts, getStudentSummary, getDebtors } from '@/api/account'
-import { cancelEnrollment as cancelEnrollmentApi } from '@/api/enrollment'
+import { cancelEnrollment as cancelEnrollmentApi, getPendingCancels, approveCancel as approveCancelApi, rejectCancel as rejectCancelApi } from '@/api/enrollment'
 import { getSubjects } from '@/api/subject'
 import { getTeacherSalaries } from '@/api/teacher'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Money } from '@element-plus/icons-vue'
 
 const activeTab = ref('query')
+
+function onTabChange(name) {
+  if (name === 'approvals') loadPendingCancels()
+}
 
 // ======== 缴费查询 ========
 const queryStudentId = ref('')
@@ -282,6 +312,34 @@ async function loadTeacherSalaries() {
     salaries.value = await getTeacherSalaries()
   } catch (e) {}
   salaryLoading.value = false
+}
+
+// ======== 退课审批 ========
+const pendingCancels = ref([])
+const approvalLoading = ref(false)
+
+async function loadPendingCancels() {
+  approvalLoading.value = true
+  try { pendingCancels.value = await getPendingCancels() } catch (e) {}
+  approvalLoading.value = false
+}
+
+async function approveCancel(row) {
+  try {
+    await ElMessageBox.confirm(`确定通过学生 ${row.studentId} 的退课申请吗？将全额退款 ¥${(row.totalPaid||0).toFixed(2)}。`, '确认审批', { type: 'warning' })
+    const result = await approveCancelApi(row.studentId, row.classCode)
+    ElMessage.success(result)
+    loadPendingCancels()
+  } catch (e) {}
+}
+
+async function rejectCancel(row) {
+  try {
+    await ElMessageBox.confirm(`确定拒绝学生 ${row.studentId} 的退课申请吗？`, '确认拒绝', { type: 'warning' })
+    const result = await rejectCancelApi(row.studentId, row.classCode)
+    ElMessage.success(result)
+    loadPendingCancels()
+  } catch (e) {}
 }
 
 function formatDate(dateStr) {
