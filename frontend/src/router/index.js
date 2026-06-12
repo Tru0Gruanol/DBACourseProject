@@ -7,6 +7,7 @@ import TeacherManage from '@/views/TeacherManage.vue'
 import FeeManage from '@/views/FeeManage.vue'
 import ScheduleQuery from '@/views/ScheduleQuery.vue'
 import StudentManage from '@/views/StudentManage.vue'
+import MyCourses from '@/views/MyCourses.vue'
 import LoginView from '@/views/LoginView.vue'
 
 const routes = [
@@ -45,6 +46,11 @@ const routes = [
     path: '/schedule',
     component: ScheduleQuery,
     meta: { roles: ['student', 'teacher', 'admin'] },
+  },
+  {
+    path: '/my-courses',
+    component: MyCourses,
+    meta: { roles: ['student'] },
   },
   {
     path: '/students',

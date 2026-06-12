@@ -175,7 +175,7 @@ DBACourseProject
 │       ├─ App.vue                     #   根组件
 │       ├─ style.css                   #   全局样式
 │       ├─ router/
-│       │   └─ index.js                #   路由配置（6 个页面路由）
+│       │   └─ index.js                #   路由配置（8 个页面路由 + 角色守卫）
 │       ├─ layouts/
 │       │   └─ MainLayout.vue          #   主布局（侧边栏 + 顶栏 + 路由出口）
 │       ├─ utils/
@@ -193,9 +193,10 @@ DBACourseProject
 │       │   ├─ account.js
 │       │   ├─ schedule.js
 │       │   └─ auth.js                 #   登录 + 改密码
-│       └─ views/                      #   页面组件（8 个）
+│       └─ views/                      #   页面组件（9 个）
 │           ├─ LoginView.vue           #     统一登录页
 │           ├─ StudentEnrollment.vue   #     学生报名页
+│           ├─ MyCourses.vue           #     已选课程页
 │           ├─ SubjectManage.vue       #     科目管理页
 │           ├─ ClassManage.vue         #     班级管理页
 │           ├─ TeacherManage.vue       #     教师管理页
@@ -283,9 +284,10 @@ DBACourseProject
 | student_id | INT | PRIMARY KEY (复合), FK → students | 学生编号 |
 | class_code | VARCHAR(20) | PRIMARY KEY (复合), FK → classes | 班级代号 |
 | enrollment_time | DATETIME | NOT NULL | 报名时间 |
-| amount_paid | DECIMAL(10,2) | DEFAULT 0.00 | 累计已缴金额（反规范化字段） |
+| amount_paid | DECIMAL(10,2) | DEFAULT 0.00 | 累计已缴金额 |
+| status | VARCHAR(20) | NOT NULL DEFAULT 'active' | 报名状态（active-在读 / cancelled-已退课） |
 
-复合主键 **(student_id, class_code)** 天然防止同一学生重复报名同一班级。
+复合主键 **(student_id, class_code)** 天然防止同一学生重复报名同一班级。退课仅软删除（标记 cancelled），流水保留不变，全额退款通过负向冲销实现。同科目重复报名在后端 processEnrollment 中拦截（遍历 active 报名比对 subject_id）。
 
 #### 5.2.6 账目流水表 (accounts)
 
@@ -346,26 +348,30 @@ Base URL: http://localhost:8080/api
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | GET | `/api/students` | 获取全部学生 |
+| GET | `/api/students/{studentId}` | 按 ID 查询学生 |
 | POST | `/api/students` | 新增学生（含 ID 重复校验） |
+| PUT | `/api/students` | 更新学生 |
+| DELETE | `/api/students/{studentId}` | 删除学生（全 cancelled 后允许物理清理） |
 
 ### 6.6 报名模块 — `/api/enrollments`
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
 | POST | `/api/enrollments/submit` | 提交报名（核心事务接口） |
-| PUT | `/api/enrollments/cancel?studentId=&classCode=` | 退课（退回已缴金额） |
-| GET | `/api/enrollments/check?studentId=&classCode=` | 检查报名状态（是否退过） |
+| DELETE | `/api/enrollments/cancel?studentId=&classCode=` | 退课（退回已缴金额 + 恢复班级名额） |
+| GET | `/api/enrollments/check?studentId=&classCode=` | 检查报名状态（含历史取消记录） |
 
-**报名流程**（`StudentEnrollmentService.processEnrollment`）：
+**报名流程**（`StudentEnrollmentService.processEnrollment`，六重门禁）：
 
 1. 校验学生是否存在
-2. 校验是否重复报名
-3. 校验班级是否存在
-4. 检查班级是否满员（`enrolled_count >= capacity`）
-5. 原子性递增 `enrolled_count`（防超卖）
-6. 写入 `student_enrollments` 桥接表
-7. 写入 `accounts` 账目流水表
-8. 以上操作在同一事务中，失败则全部回滚
+2. 校验是否重复报名同一班级
+3. 检测 cancelled 记录 → UPDATE 复用（重新报名）
+4. 校验班级是否存在
+5. **同科目防重复**：遍历 active 报名比对 subject_id
+6. 检查是否满员（`enrolled_count >= capacity`）
+7. **学生总维度缴费校验**：已缴 + 本次 <= 所有 active 课程学费之和
+8. 原子性递增 `enrolled_count`（`WHERE enrolled_count < capacity` 防超卖）
+9. 写入 `student_enrollments` + `accounts`，同一事务中
 
 ### 6.7 账目模块 — `/api/accounts`
 
@@ -375,7 +381,7 @@ Base URL: http://localhost:8080/api
 | POST | `/api/accounts/pay` | 单独缴费/补缴（校验报名 + 写入流水 + 更新已缴金额） |
 | GET | `/api/accounts/invoice?studentId=&classCode=` | 打印收费清单（应缴/已缴/欠费 + 缴费明细） |
 | GET | `/api/accounts/debtors` | 查询欠费学生列表 |
-| GET | `/api/accounts/student/{studentId}` | 查询学生缴费汇总（报名列表 + 欠费统计） |
+| GET | `/api/accounts/student-summary?studentId=` | 查询学生缴费汇总（报名列表 + 缴费明细 + 欠费统计） |
 
 ### 6.8 课表模块 — `/api/schedules`
 
@@ -400,7 +406,7 @@ Base URL: http://localhost:8080/api
 
 | 角色 | 可见菜单 |
 |------|----------|
-| 学生 | 学生报名、课表查询 |
+| 学生 | 学生报名、已选课程、课表查询 |
 | 教师 | 课表查询（含薪酬汇总） |
 | 管理员 | 全部 7 个菜单（学生报名、科目管理、班级管理、教师管理、学生管理、收费管理、课表查询） |
 
@@ -409,13 +415,14 @@ Base URL: http://localhost:8080/api
 | 页面 | 路由 | 角色 | 核心功能 |
 |------|------|------|----------|
 | **登录页** | `/login` | 全部 | 统一登录表单（学号/工号/管理员名 + 密码），后端自动识别身份 |
-| **学生报名** | `/enrollment` | 学生/管理员 | 学生端：我的缴费状态卡片 + 补缴按钮 + 报名表单 + 退课；管理端：报名表单 + 退课 |
-| **科目管理** | `/subjects` | 管理员 | 科目表格展示、新增科目弹窗、编辑科目弹窗、删除确认 |
-| **班级管理** | `/classes` | 管理员 | 班级列表（含科目/教师名称映射、金额 ¥ 格式化、满员标红）、新增班级弹窗 |
-| **教师管理** | `/teachers` | 管理员 | 教师列表展示、按特长筛选、内联新增表单 |
-| **收费管理** | `/fee` | 管理员 | 四 Tab：流水记录、单独缴费、收费清单（应缴/已缴/欠费）、教师薪酬 |
-| **课表查询** | `/schedule` | 全部 | 学生：自动显示自己课表；教师：自动显示自己课表 + 薪酬汇总；管理员：双标签手动查询 |
-| **学生管理** | `/students` | 管理员 | 内联新增表单 + 学生列表 |
+| **学生报名** | `/enrollment` | 学生/管理员 | 学生端：选科目->选班级->选填缴费->提交；管理端：先输学号->显示学生信息->无缴费金额报名表单->已选课程列表+退课 |
+| **已选课程** | `/my-courses` | 学生 | 课程列表（科目/老师/级别/学费/已缴/状态）+ 补缴弹窗 + 退课 + 汇总卡片 + 催费提示 |
+| **科目管理** | `/subjects` | 管理员 | 科目 CRUD（表格 + 弹窗表单） |
+| **班级管理** | `/classes` | 管理员 | 班级列表（选科后教师特长联动过滤、enrolledCount 编辑时禁用、满员标红） |
+| **教师管理** | `/teachers` | 管理员 | 教师 CRUD（等级下拉选择，删除前 FK 检查） |
+| **收费管理** | `/fee` | 管理员 | 四标签页：缴费查询（含退课）+ 流水记录 + 催费列表 + 教师薪酬 |
+| **课表查询** | `/schedule` | 全部 | 学生/教师：自动加载个人课表；管理员：输入学号/工号->自动识别类型->对应课表+人员信息 |
+| **学生管理** | `/students` | 管理员 | 学生 CRUD（全 cancelled 后允许删除） |
 
 ---
 
@@ -437,11 +444,13 @@ Base URL: http://localhost:8080/api
 2. 使用 MySQL Workbench 或命令行执行：
 
 ```sql
--- 依次执行建表脚本
+-- 建表
 source database/create_table.sql;
-
--- 导入测试数据
+-- 测试数据
 source database/insert_test_data.sql;
+-- 迁移脚本（password 字段等）
+source database/migrate_day07.sql;
+source database/migrate_day08.sql;
 ```
 
 ### 8.3 后端启动
@@ -514,8 +523,13 @@ const request = axios.create({
 | 角色登录认证 | ✅ 完整实现 | `AuthService.loginAuto` 三种身份自动识别 |
 | 学生补缴欠费 | ✅ 完整实现 | 缴费状态卡片 + arrears 计算 + 补缴弹窗 |
 | 教师薪酬统计 | ✅ 完整实现 | 教师端汇总卡 + 管理端教师薪酬标签页 |
-| 事务管理（加分项） | ✅ | `@Transactional` 报名 + 缴费 |
+| 退课自动退款 | ✅ 完整实现 | 负向冲销，全额退还 |
+| 同科目防重复报名 | ✅ 完整实现 | processEnrollment 第 4.5 步 subject_id 遍历 |
+| 管理员两阶段交互 | ✅ 完整实现 | 查询后卡片消失，展示全新内容 |
+| 数据库密码加密 | ✅ 完整实现 | Jasypt PBEWITHHMACSHA512ANDAES_256 |
+| 事务管理（加分项） | ✅ | `@Transactional` 报名 + 缴费 + 退课 |
 | 全局异常处理（加分项） | ✅ | `GlobalExceptionHandler` |
+| 敏感数据加解密（加分项） | ✅ | Jasypt 加密 application.properties 密码 |
 
 ---
 
@@ -527,9 +541,10 @@ const request = axios.create({
 | 2026.6.3～6.4 | [Day02](log/day02.md) | ER 图设计、6 张表建表、范式优化讨论、Spring Boot 项目创建、第一个 API 测试 |
 | 2026.6.5 | [Day03](log/day03.md) | 后端核心开发、报名事务流程、跨域配置、防重复校验、全部接口调试 |
 | 2026.6.6 | [Day04](log/day04.md) | 后端完善（科目 CRUD + 课表 + 缴费/清单/催费）、前端全面开发（6 页面） |
-| 2026.6.8 | [Day05](log/day05.md) | Bug 修复、教师管理页、文件管理优化、退课退款逻辑完善 |
-| 2026.6.9 | [Day06](log/day06.md) | 前端假登录（角色 UI 分流）、前后端联调删除逻辑、UI 细节优化 |
-| 2026.6.11 | [Day07](log/day07.md) | 登录认证系统（数据库密码字段 + 后端统一登录 + Pinia 状态管理）、学生补缴、教师薪酬、统一登录入口合并 |
+| 2026.6.9 | [Day05](log/day05.md) | Claude Code 全量代码审查，修复 11 个问题：删除 FK 检查、enrolledCount 防篡改、假删除成功语义检测、Entity Lombok 化、全局异常处理 |
+| 2026.6.10 | [Day06](log/day06.md) | 退款清算系统：status 软删除、退课全额退款（负向冲销）、学生总维度缴费规则、教师特长过滤、退课后重新报名（UPDATE 复用） |
+| 2026.6.11 | [Day07](log/day07.md) | 登录认证系统（AuthService + Pinia + 路由守卫）、角色权限、学生补缴修复、教师薪酬（双端）、课表角色隔离 |
+| 2026.6.12 | [Day08](log/day08.md) | 前端结构重构（MyCourses + 管理端两阶段交互 + 课表统一 ID）、同科目防重复、后端接口增强、Jasypt 加密、全流程联调、课设报告 |
 
 ---
 

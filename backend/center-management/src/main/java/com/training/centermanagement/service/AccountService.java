@@ -3,9 +3,13 @@ package com.training.centermanagement.service;
 import com.training.centermanagement.entity.Account;
 import com.training.centermanagement.entity.Classes;
 import com.training.centermanagement.entity.StudentEnrollment;
+import com.training.centermanagement.entity.Subject;
+import com.training.centermanagement.entity.Teacher;
 import com.training.centermanagement.mapper.AccountMapper;
 import com.training.centermanagement.mapper.ClassesMapper;
 import com.training.centermanagement.mapper.StudentEnrollmentMapper;
+import com.training.centermanagement.mapper.SubjectMapper;
+import com.training.centermanagement.mapper.TeacherMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +26,10 @@ public class AccountService {
     private ClassesMapper classesMapper;
     @Autowired
     private StudentEnrollmentMapper studentEnrollmentMapper;
+    @Autowired
+    private SubjectMapper subjectMapper;
+    @Autowired
+    private TeacherMapper teacherMapper;
 
     public List<Account> getAllAccounts() {
         return accountMapper.getAllAccounts();
@@ -97,7 +105,7 @@ public class AccountService {
         return invoice;
     }
 
-    // 学生缴费总览（统一缴费查询页用）
+    // 学生缴费总览（统一缴费查询页/已选课程页用）
     public Map<String, Object> getStudentSummary(Integer studentId) {
         Map<String, Object> summary = new HashMap<>();
         // 全部报名记录（含已退课）
@@ -116,10 +124,25 @@ public class AccountService {
             BigDecimal paid = accountMapper.getTotalPaidByStudentAndClass(studentId, e.getClassCode());
             boolean isActive = "active".equals(e.getStatus());
 
+            // 查询科目名
+            Subject subject = subjectMapper.getSubjectById(cls.getSubjectId());
+            String subjectName = subject != null ? subject.getSubjectName() : "";
+
+            // 查询教师信息
+            Teacher teacher = teacherMapper.getTeacherById(cls.getTeacherId());
+            String teacherName = teacher != null ? teacher.getTeacherName() : "";
+            String teacherLevel = teacher != null ? teacher.getTeacherLevel() : "";
+
             Map<String, Object> detail = new HashMap<>();
             detail.put("classCode", e.getClassCode());
             detail.put("subjectId", cls.getSubjectId());
+            detail.put("subjectName", subjectName);
+            detail.put("teacherId", cls.getTeacherId());
+            detail.put("teacherName", teacherName);
+            detail.put("teacherLevel", teacherLevel);
             detail.put("term", cls.getTerm());
+            detail.put("period", cls.getPeriod());
+            detail.put("location", cls.getLocation());
             detail.put("fee", fee);
             detail.put("totalPaid", paid);
             detail.put("status", e.getStatus());  // 'active' or 'cancelled'

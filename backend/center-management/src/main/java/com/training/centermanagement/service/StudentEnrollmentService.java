@@ -51,13 +51,21 @@ public class StudentEnrollmentService {
             return "报名失败：班级不存在！";
         }
 
+        // 4.5. 【同科目防重复】检查学生是否已报名该科目的其他班级
+        java.util.List<StudentEnrollment> activeList = studentEnrollmentMapper.getActiveEnrollmentsByStudentId(studentId);
+        for (StudentEnrollment e : activeList) {
+            Classes existingClass = classesMapper.getClassByCode(e.getClassCode());
+            if (existingClass != null && existingClass.getSubjectId().equals(cls.getSubjectId())) {
+                return "报名失败：该学生已报名同一科目（subject_id=" + cls.getSubjectId() + "）的班级 " + e.getClassCode() + "，不能重复报名同一科目！";
+            }
+        }
+
         // 5. 检查是否满员
         if (cls.getEnrolledCount() >= cls.getCapacity()) {
             return "报名失败：【" + cls.getClassCode() + "】已满员！系统建议引导学员选择同科目下一期班级。";
         }
 
         // 6. 【学生总维度校验】本次缴费 + 已有累计缴费 ≤ 已有课程学费 + 新课程学费
-        java.util.List<StudentEnrollment> activeList = studentEnrollmentMapper.getActiveEnrollmentsByStudentId(studentId);
         BigDecimal totalFee = cls.getFee();  // 包含新课程学费
         BigDecimal totalPaid = BigDecimal.ZERO;
         for (StudentEnrollment e : activeList) {

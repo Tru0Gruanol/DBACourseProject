@@ -5,157 +5,164 @@
       <h2>学生报名</h2>
     </div>
 
-    <!-- 学生端：我的缴费状态（含催费提示） -->
-    <el-card v-if="auth.isStudent" shadow="hover" style="margin-bottom:20px">
-      <template #header>
-        <span style="font-weight:600">我的缴费状态</span>
-      </template>
-      <div v-if="paymentSummary && paymentSummary.enrollments && paymentSummary.enrollments.length">
-        <el-table :data="paymentSummary.enrollments" stripe border size="small">
-          <el-table-column label="科目" width="100">
-            <template #default="{ row }">
-              {{ getSubjectNameByEnrollment(row) }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="classCode" label="班级代号" width="130" />
-          <el-table-column label="学费" width="100">
-            <template #default="{ row }">
-              ¥{{ row.fee || 0 }}
-            </template>
-          </el-table-column>
-          <el-table-column label="已缴" width="100">
-            <template #default="{ row }">
-              ¥{{ row.totalPaid || 0 }}
-            </template>
-          </el-table-column>
-          <el-table-column label="状态" width="180">
-            <template #default="{ row }">
-              <span v-if="row.arrears > 0" style="color:#F56C6C;font-weight:500">
-                ⚠ 欠费 ¥{{ row.arrears }}
-              </span>
-              <span v-else style="color:#67C23A">已结清</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="报名状态" width="90">
-            <template #default="{ row }">
-              <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
-                {{ row.status === 'active' ? '在读' : '已退课' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="80">
-            <template #default="{ row }">
-              <el-button
-                v-if="row.status === 'active' && row.arrears > 0"
-                size="small"
-                type="primary"
-                @click="openPayDialog(row)"
-              >
-                补缴
-              </el-button>
-              <span v-else style="color:#909399;font-size:12px">—</span>
-            </template>
-          </el-table-column>
-        </el-table>
-        <div style="margin-top:12px;display:flex;gap:24px">
-          <span>应缴总额：<b style="color:#5b6abf">¥{{ paymentSummary.totalFee || 0 }}</b></span>
-          <span>已缴总额：<b style="color:#67C23A">¥{{ paymentSummary.totalPaid || 0 }}</b></span>
-          <span v-if="(paymentSummary.totalFee || 0) > (paymentSummary.totalPaid || 0)">
-            尚欠：<b style="color:#F56C6C">¥{{ ((paymentSummary.totalFee || 0) - (paymentSummary.totalPaid || 0)).toFixed(2) }}</b>
+    <!-- ======== 管理端 ======== -->
+    <template v-if="auth.isAdmin">
+      <!-- 步骤1：未查询学生 → 只显示学号输入 -->
+      <el-card v-if="!adminReady" shadow="hover" style="max-width:460px">
+        <template #header>
+          <span style="font-weight:600">查询学生</span>
+        </template>
+        <el-form :inline="true">
+          <el-form-item label="学生ID">
+            <el-input v-model="adminStudentId" placeholder="请输入学生ID" @keyup.enter="adminLookup" />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="adminLookingUp" @click="adminLookup">查询</el-button>
+          </el-form-item>
+        </el-form>
+      </el-card>
+
+      <!-- 步骤2：已查询到学生 → 全新页面，隐藏查询卡片 -->
+      <template v-if="adminReady">
+        <!-- 学生信息头部 -->
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px">
+          <el-icon size="22" color="#5b6abf"><UserFilled /></el-icon>
+          <span style="font-size:17px;font-weight:600;color:#1a1a1a">
+            {{ adminStudentInfo.studentName || '学生' + adminStudentId }}
           </span>
-          <span v-else style="color:#67C23A;font-weight:500">✅ 全部已缴清</span>
+          <el-tag type="info" size="small">学号 {{ adminStudentId }}</el-tag>
+          <el-button size="small" text type="primary" @click="adminReset" style="margin-left:8px">
+            <el-icon style="margin-right:2px"><Switch /></el-icon>更换学生
+          </el-button>
         </div>
-        <el-alert v-if="hasArrears" type="warning" title="催费通知" :closable="false" show-icon style="margin-top:12px">
-          您有课程尚未缴清费用，请在下方操作列点击「补缴」按钮完成缴费。
-        </el-alert>
-      </div>
-      <el-empty v-else description="暂无报名记录" />
-    </el-card>
 
-    <!-- 报名表单 -->
-    <el-card shadow="hover" style="margin-bottom:20px">
-      <template #header>
-        <span style="font-weight:600">报名信息</span>
-      </template>
-      <el-form :model="form" label-width="120px">
-        <el-form-item label="选择科目">
-          <el-select v-model="selectedSubjectId" placeholder="请选择科目" @change="onSubjectChange" clearable style="width:100%">
-            <el-option v-for="sub in subjects" :key="sub.subjectId" :label="sub.subjectName" :value="sub.subjectId" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="选择班级">
-          <el-select v-model="form.classCode" placeholder="请先选择科目" clearable style="width:100%">
-            <el-option v-for="cls in classList" :key="cls.classCode"
-              :label="`${cls.classCode} | ${getTeacherName(cls.teacherId)} | ${cls.period} | 费用:¥${cls.fee} | 剩余:${cls.capacity - cls.enrolledCount}人`"
-              :value="cls.classCode" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="学生ID">
-          <el-input v-model="form.studentId" :disabled="auth.isStudent" />
-        </el-form-item>
-        <el-form-item label="缴费金额">
-          <el-input-number v-model="form.payment" :min="0" :precision="2" style="width:100%" />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :loading="submitting" @click="handleSubmit">提交报名</el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
+        <!-- 报名表单 -->
+        <el-card shadow="hover" style="margin-bottom:20px">
+          <template #header>
+            <span style="font-weight:600">报名信息</span>
+          </template>
+          <el-form :model="form" label-width="120px">
+            <el-form-item label="选择科目">
+              <el-select v-model="selectedSubjectId" placeholder="请选择科目" @change="onSubjectChange" clearable style="width:100%">
+                <el-option v-for="sub in subjects" :key="sub.subjectId" :label="sub.subjectName" :value="sub.subjectId" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="选择班级">
+              <el-select v-model="form.classCode" placeholder="请先选择科目" clearable style="width:100%">
+                <el-option v-for="cls in classList" :key="cls.classCode"
+                  :label="`${cls.classCode} | ${getTeacherName(cls.teacherId)} | ${cls.period} | 费用:¥${cls.fee} | 剩余:${cls.capacity - cls.enrolledCount}人`"
+                  :value="cls.classCode" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" :loading="submitting" @click="handleSubmit">提交报名</el-button>
+              <span style="color:#909399;font-size:12px;margin-left:12px">管理员代为报名，缴费由学生在「已选课程」自行完成</span>
+            </el-form-item>
+          </el-form>
+        </el-card>
 
-    <!-- 退课操作 -->
-    <el-card shadow="hover" style="max-width:600px">
-      <template #header>
-        <span style="font-weight:600;color:#F56C6C">退课操作</span>
+        <!-- 已选课程（含退课操作） -->
+        <el-card shadow="hover">
+          <template #header>
+            <span style="font-weight:600">已选课程</span>
+          </template>
+          <el-table v-if="adminEnrollments.length" :data="adminEnrollments" stripe border size="small" v-loading="adminEnrollLoading">
+            <el-table-column label="科目" width="100">
+              <template #default="{ row }">{{ row.subjectName }}</template>
+            </el-table-column>
+            <el-table-column prop="classCode" label="班级代号" width="140" />
+            <el-table-column label="老师" width="100">
+              <template #default="{ row }">{{ row.teacherName }}</template>
+            </el-table-column>
+            <el-table-column label="教师级别" width="100">
+              <template #default="{ row }">
+                <el-tag size="small" type="info">{{ row.teacherLevel }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="学费" width="100">
+              <template #default="{ row }">¥{{ (row.fee || 0).toFixed(2) }}</template>
+            </el-table-column>
+            <el-table-column label="已缴" width="100">
+              <template #default="{ row }">¥{{ (row.totalPaid || 0).toFixed(2) }}</template>
+            </el-table-column>
+            <el-table-column label="欠费" width="100">
+              <template #default="{ row }">
+                <span v-if="row.status !== 'active'" style="color:#909399">—</span>
+                <span v-else-if="(row.fee || 0) > (row.totalPaid || 0)" style="color:#F56C6C">
+                  ¥{{ ((row.fee || 0) - (row.totalPaid || 0)).toFixed(2) }}
+                </span>
+                <span v-else style="color:#67C23A">已结清</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="报名状态" width="90">
+              <template #default="{ row }">
+                <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
+                  {{ row.status === 'active' ? '在读' : '已退课' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="80" fixed="right">
+              <template #default="{ row }">
+                <el-button
+                  v-if="row.status === 'active'"
+                  size="small"
+                  type="danger"
+                  @click="adminCancelEnrollment(row)"
+                >
+                  退课
+                </el-button>
+                <span v-else style="color:#909399;font-size:12px">已退款</span>
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-if="!adminEnrollLoading && !adminEnrollments.length" description="该学生暂无选课记录" />
+        </el-card>
       </template>
-      <el-form :inline="true">
-        <el-form-item label="学生ID">
-          <el-input v-model="cancelForm.studentId" placeholder="学生ID" :disabled="auth.isStudent" />
-        </el-form-item>
-        <el-form-item label="班级代号">
-          <el-input v-model="cancelForm.classCode" placeholder="班级代号" />
-        </el-form-item>
-        <el-form-item>
-          <el-button type="danger" :loading="cancelling" @click="handleCancel">退课</el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
+    </template>
 
-    <!-- 补缴弹窗 -->
-    <el-dialog v-model="payDialogVisible" title="补缴学费" width="400px" :close-on-click-modal="false">
-      <el-form :model="payForm" label-width="100px">
-        <el-form-item label="班级">
-          <el-input :model-value="payTargetRow ? payTargetRow.classCode + '（学费 ¥' + payTargetRow.fee + '）' : ''" disabled />
-        </el-form-item>
-        <el-form-item label="已缴">
-          <el-input :model-value="payTargetRow ? '¥' + (payTargetRow.totalPaid || 0) : ''" disabled />
-        </el-form-item>
-        <el-form-item label="补缴金额">
-          <el-input-number v-model="payForm.amount" :min="0.01" :max="payTargetRow ? payTargetRow.arrears : 0" :precision="2" style="width:100%" />
-        </el-form-item>
-        <el-form-item v-if="payTargetRow">
-          <span style="color:#909399;font-size:12px">
-            尚欠 ¥{{ payTargetRow.arrears || 0 }}，本次最多可缴 ¥{{ payTargetRow.arrears || 0 }}
-          </span>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="payDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="paying" @click="handlePay">确认补缴</el-button>
-      </template>
-    </el-dialog>
+    <!-- ======== 学生端：只显示报名表单 ======== -->
+    <template v-else>
+      <el-card shadow="hover">
+        <template #header>
+          <span style="font-weight:600">报名信息</span>
+        </template>
+        <el-form :model="form" label-width="120px">
+          <el-form-item label="选择科目">
+            <el-select v-model="selectedSubjectId" placeholder="请选择科目" @change="onSubjectChange" clearable style="width:100%">
+              <el-option v-for="sub in subjects" :key="sub.subjectId" :label="sub.subjectName" :value="sub.subjectId" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="选择班级">
+            <el-select v-model="form.classCode" placeholder="请先选择科目" clearable style="width:100%">
+              <el-option v-for="cls in classList" :key="cls.classCode"
+                :label="`${cls.classCode} | ${getTeacherName(cls.teacherId)} | ${cls.period} | 费用:¥${cls.fee} | 剩余:${cls.capacity - cls.enrolledCount}人`"
+                :value="cls.classCode" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="缴费金额">
+            <el-input-number v-model="form.payment" :min="0" :precision="2" style="width:100%" />
+            <span style="color:#909399;font-size:12px;margin-left:8px">选填，可先报名后到「已选课程」补缴</span>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="submitting" @click="handleSubmit">提交报名</el-button>
+          </el-form-item>
+        </el-form>
+      </el-card>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { getSubjects } from '@/api/subject'
 import { getTeachers } from '@/api/teacher'
 import { getClassesBySubject } from '@/api/classes'
 import { submitEnrollment, cancelEnrollment, checkEnrollment } from '@/api/enrollment'
-import { getStudentSummary, payFee } from '@/api/account'
+import { getStudentSummary } from '@/api/account'
+import { getStudentById } from '@/api/student'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { EditPen } from '@element-plus/icons-vue'
+import { EditPen, UserFilled, Switch } from '@element-plus/icons-vue'
 
 const auth = useAuthStore()
 
@@ -170,87 +177,82 @@ const form = reactive({
   payment: 0,
 })
 
-const cancelForm = reactive({
-  studentId: '',
-  classCode: '',
-})
-
 const submitting = ref(false)
-const cancelling = ref(false)
 
-// ======== 补缴 ========
-const payDialogVisible = ref(false)
-const paying = ref(false)
-const payTargetRow = ref(null)
-const payForm = reactive({ amount: 0 })
+// ======== 管理端 ========
+const adminStudentId = ref('')
+const adminStudentInfo = ref({ studentName: '' })
+const adminLookingUp = ref(false)
+const adminReady = ref(false)
+const adminEnrollments = ref([])
+const adminEnrollLoading = ref(false)
 
-function openPayDialog(row) {
-  payTargetRow.value = row
-  payForm.amount = row.arrears || 0
-  payDialogVisible.value = true
-}
-
-async function handlePay() {
-  if (!payForm.amount || payForm.amount <= 0) {
-    ElMessage.warning('补缴金额必须大于0')
+async function adminLookup() {
+  if (!adminStudentId.value) {
+    ElMessage.warning('请输入学生ID')
     return
   }
-  paying.value = true
+  adminLookingUp.value = true
   try {
-    const result = await payFee({
-      studentId: Number(auth.userId),
-      classCode: payTargetRow.value.classCode,
-      amount: payForm.amount,
-    })
-    ElMessage.success(result)
-    payDialogVisible.value = false
-    loadPaymentSummary()
-  } catch (e) {}
-  paying.value = false
-}
-
-// ======== 缴费状态（学生端） ========
-const paymentSummary = ref(null)
-
-const hasArrears = computed(() => {
-  if (!paymentSummary.value) return false
-  return (paymentSummary.value.totalFee || 0) > (paymentSummary.value.totalPaid || 0)
-})
-
-function getSubjectNameByEnrollment(enrollment) {
-  // enrollment 中可能没有 subjectName，需要从 subjects 中查找
-  // classCode 可用于查找班级，再通过班级的 subjectId 找科目名
-  // 简化处理：enrollment 如果有 subjectId 字段就使用，否则通过 classCode 推测
-  if (enrollment.subjectName) return enrollment.subjectName
-  // 尝试从 subjects 中通过 subjectId 查找（后端链路不同，字段可能不同）
-  const sub = subjects.value.find(s => s.subjectId === enrollment.subjectId)
-  return sub ? sub.subjectName : (enrollment.subjectId || '')
-}
-
-async function loadPaymentSummary() {
-  if (!auth.isStudent || !auth.userId) return
-  try {
-    const data = await getStudentSummary(Number(auth.userId))
-    // 后端不返回 arrears，前端计算
-    if (data && data.enrollments) {
-      data.enrollments = data.enrollments.map(e => ({
-        ...e,
-        arrears: Math.max(0, (e.fee || 0) - (e.totalPaid || 0)),
-      }))
-    }
-    paymentSummary.value = data
+    // 先查学生信息获取姓名
+    const student = await getStudentById(Number(adminStudentId.value))
+    adminStudentInfo.value = student || { studentName: '' }
+    adminReady.value = true
+    form.studentId = String(adminStudentId.value)
+    loadAdminEnrollments()
   } catch (e) {
-    // 无数据时静默处理
+    // 学生不存在也允许继续（可能是新学生）
+    adminStudentInfo.value = { studentName: '' }
+    adminReady.value = true
+    form.studentId = String(adminStudentId.value)
+    adminEnrollments.value = []
   }
+  adminLookingUp.value = false
+}
+
+function adminReset() {
+  adminStudentId.value = ''
+  adminStudentInfo.value = { studentName: '' }
+  adminReady.value = false
+  adminEnrollments.value = []
+  form.studentId = ''
+  form.classCode = ''
+  form.payment = 0
+  selectedSubjectId.value = ''
+  classList.value = []
+}
+
+async function loadAdminEnrollments() {
+  adminEnrollLoading.value = true
+  try {
+    const data = await getStudentSummary(Number(adminStudentId.value))
+    adminEnrollments.value = data && data.enrollments ? data.enrollments : []
+  } catch (e) {
+    adminEnrollments.value = []
+  }
+  adminEnrollLoading.value = false
+}
+
+async function adminCancelEnrollment(row) {
+  try {
+    await ElMessageBox.confirm(
+      `确定要让学生 ${adminStudentId.value} 退出班级「${row.classCode}」吗？已缴 ¥${(row.totalPaid || 0).toFixed(2)} 将全额退还。`,
+      '确认退课',
+      { type: 'warning', confirmButtonText: '确认退课', cancelButtonText: '取消' }
+    )
+    const result = await cancelEnrollment(Number(adminStudentId.value), row.classCode)
+    ElMessage.success(result)
+    loadAdminEnrollments()
+    if (selectedSubjectId.value) {
+      classList.value = await getClassesBySubject(selectedSubjectId.value)
+    }
+  } catch (e) {}
 }
 
 // ======== 初始化 ========
 onMounted(async () => {
-  // 学生登录后自动填入学生ID
   if (auth.isStudent && auth.userId) {
     form.studentId = auth.userId
-    cancelForm.studentId = auth.userId
-    loadPaymentSummary()
   }
   try {
     const [subList, teaList] = await Promise.all([
@@ -285,60 +287,35 @@ const handleSubmit = async () => {
   }
   submitting.value = true
   try {
-    // 检查是否为重新报名（之前退过该课程）
-    const checkResult = await checkEnrollment(Number(form.studentId), form.classCode)
-    if (checkResult.exists && checkResult.status === 'cancelled') {
-      const date = new Date(checkResult.enrollmentTime).toLocaleDateString('zh-CN')
-      await ElMessageBox.confirm(
-        `该学生已于 ${date} 退过此课程（班级：${form.classCode}），是否重新报名？`,
-        '重新报名确认',
-        { type: 'warning', confirmButtonText: '确认重新报名', cancelButtonText: '取消' }
-      )
-    }
-
     const payload = {
       studentId: Number(form.studentId),
       classCode: form.classCode,
       payment: form.payment,
     }
+
+    try {
+      const checkResult = await checkEnrollment(Number(form.studentId), form.classCode)
+      if (checkResult.exists && checkResult.status === 'cancelled') {
+        const date = new Date(checkResult.enrollmentTime).toLocaleDateString('zh-CN')
+        await ElMessageBox.confirm(
+          `该学生已于 ${date} 退过此课程（班级：${form.classCode}），是否重新报名？`,
+          '重新报名确认',
+          { type: 'warning', confirmButtonText: '确认重新报名', cancelButtonText: '取消' }
+        )
+      }
+    } catch (e) {}
+
     const result = await submitEnrollment(payload)
     ElMessage.success(result)
-    // 只清空学生相关字段，保留科目选择和班级列表以方便连续报名
-    form.studentId = auth.isStudent ? auth.userId : ''
     form.classCode = ''
     form.payment = 0
-    // 刷新班级列表 + 缴费状态
     if (selectedSubjectId.value) {
       classList.value = await getClassesBySubject(selectedSubjectId.value)
     }
-    if (auth.isStudent) {
-      loadPaymentSummary()
+    if (auth.isAdmin && adminReady.value) {
+      loadAdminEnrollments()
     }
   } catch (error) {}
   submitting.value = false
-}
-
-const handleCancel = async () => {
-  if (!cancelForm.studentId || !cancelForm.classCode) {
-    ElMessage.warning('请填写学生ID和班级代号')
-    return
-  }
-  cancelling.value = true
-  try {
-    await ElMessageBox.confirm(
-      `确定要让学生 ${cancelForm.studentId} 退出班级 ${cancelForm.classCode} 吗？`,
-      '确认退课',
-      { type: 'warning' }
-    )
-    const result = await cancelEnrollment(Number(cancelForm.studentId), cancelForm.classCode)
-    ElMessage.success(result)
-    cancelForm.studentId = auth.isStudent ? auth.userId : ''
-    cancelForm.classCode = ''
-    // 退课后刷新缴费状态
-    if (auth.isStudent) {
-      loadPaymentSummary()
-    }
-  } catch (error) {}
-  cancelling.value = false
 }
 </script>

@@ -4,6 +4,10 @@ export function getStudents() {
   return request.get('/students')
 }
 
+export function getStudentById(id) {
+  return request.get(`/students/${id}`)
+}
+
 export function addStudent(data) {
   return request.post('/students', data)
 }

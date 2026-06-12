@@ -35,10 +35,21 @@ public class StudentService {
         return studentMapper.getAllStudents();
     }
 
+    public Student getStudentById(Integer studentId) {
+        return studentMapper.selectStudentById(studentId);
+    }
+
     public String updateStudent(Student student) {
         Student existing = studentMapper.selectStudentById(student.getStudentId());
         if (existing == null) {
             return "更新失败：学生ID " + student.getStudentId() + " 不存在！";
+        }
+        // 前端可能不传 registrationTime / password，用已有值补上
+        if (student.getRegistrationTime() == null) {
+            student.setRegistrationTime(existing.getRegistrationTime());
+        }
+        if (student.getPassword() == null || student.getPassword().isEmpty()) {
+            student.setPassword(existing.getPassword());
         }
         return studentMapper.updateStudent(student) > 0 ? "更新成功" : "更新失败";
     }

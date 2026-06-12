@@ -5,67 +5,10 @@
       <h2>课表查询</h2>
     </div>
 
-    <!-- 学生端：只显示自己的课表 -->
+    <!-- 学生端：自己的课表 -->
     <template v-if="auth.isStudent">
-      <el-table v-if="studentSchedule.length" :data="studentSchedule" stripe border v-loading="studentLoading">
-        <el-table-column prop="classCode" label="班级代号" width="150" />
-        <el-table-column label="科目" width="100">
-          <template #default="{ row }">{{ getSubjectName(row.subjectId) }}</template>
-        </el-table-column>
-        <el-table-column label="任课教师" width="100">
-          <template #default="{ row }">{{ getTeacherName(row.teacherId) }}</template>
-        </el-table-column>
-        <el-table-column prop="term" label="期次" width="140" />
-        <el-table-column prop="period" label="上课时间" min-width="200" />
-        <el-table-column prop="location" label="教室" width="140" />
-      </el-table>
-      <el-empty v-else-if="studentQueried && !studentLoading" description="暂无选课记录" />
-    </template>
-
-    <!-- 教师端：只显示自己的课表 + 薪酬 -->
-    <template v-else-if="auth.isTeacher">
-      <el-table v-if="teacherSchedule.length" :data="teacherSchedule" stripe border v-loading="teacherLoading">
-        <el-table-column prop="classCode" label="班级代号" width="140" />
-        <el-table-column label="科目" width="90">
-          <template #default="{ row }">{{ getSubjectName(row.subjectId) }}</template>
-        </el-table-column>
-        <el-table-column prop="term" label="期次" width="130" />
-        <el-table-column prop="period" label="上课时间" min-width="180" />
-        <el-table-column prop="location" label="教室" width="110" />
-        <el-table-column label="学生" width="80">
-          <template #default="{ row }">{{ row.enrolledCount || 0 }}/{{ row.capacity || 0 }}</template>
-        </el-table-column>
-        <el-table-column label="课时报酬" width="110">
-          <template #default="{ row }">¥{{ (row.teacherRemuneration || 0).toFixed(2) }}</template>
-        </el-table-column>
-      </el-table>
-
-      <div v-if="teacherSchedule.length" class="salary-summary">
-        <div class="salary-row">
-          <span>授课班级数</span>
-          <b>{{ teacherSchedule.length }} 个</b>
-        </div>
-        <div class="salary-row">
-          <span>课时报酬合计</span>
-          <b class="salary-total">¥{{ totalRemuneration.toFixed(2) }}</b>
-        </div>
-      </div>
-
-      <el-empty v-else-if="teacherQueried && !teacherLoading" description="暂无排课记录" />
-    </template>
-
-    <!-- 管理员端：双标签页 -->
-    <el-tabs v-else type="border-card">
-      <el-tab-pane label="学生课表" name="student">
-        <el-form :inline="true">
-          <el-form-item label="学生ID">
-            <el-input v-model="studentId" placeholder="请输入学生ID" @keyup.enter="queryStudentSchedule" />
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" :loading="studentLoading" @click="queryStudentSchedule">查询</el-button>
-          </el-form-item>
-        </el-form>
-        <el-table v-if="studentSchedule.length" :data="studentSchedule" stripe border style="margin-top:12px">
+      <el-card shadow="hover" v-loading="studentLoading">
+        <el-table v-if="studentSchedule.length" :data="studentSchedule" stripe border>
           <el-table-column prop="classCode" label="班级代号" width="150" />
           <el-table-column label="科目" width="100">
             <template #default="{ row }">{{ getSubjectName(row.subjectId) }}</template>
@@ -77,30 +20,132 @@
           <el-table-column prop="period" label="上课时间" min-width="200" />
           <el-table-column prop="location" label="教室" width="140" />
         </el-table>
-        <el-empty v-if="studentQueried && !studentSchedule.length" description="该学生暂无选课记录" />
-      </el-tab-pane>
+        <el-empty v-else-if="studentQueried" description="暂无选课记录" />
+      </el-card>
+    </template>
 
-      <el-tab-pane label="教师课表" name="teacher">
-        <el-form :inline="true">
-          <el-form-item label="教师ID">
-            <el-input v-model="teacherId" placeholder="请输入教师ID" @keyup.enter="queryTeacherSchedule" />
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" :loading="teacherLoading" @click="queryTeacherSchedule">查询</el-button>
-          </el-form-item>
-        </el-form>
-        <el-table v-if="teacherSchedule.length" :data="teacherSchedule" stripe border style="margin-top:12px">
-          <el-table-column prop="classCode" label="班级代号" width="150" />
-          <el-table-column label="科目" width="100">
+    <!-- 教师端：自己的课表 + 薪酬 -->
+    <template v-else-if="auth.isTeacher">
+      <el-card shadow="hover" v-loading="teacherLoading">
+        <el-table v-if="teacherSchedule.length" :data="teacherSchedule" stripe border>
+          <el-table-column prop="classCode" label="班级代号" width="140" />
+          <el-table-column label="科目" width="90">
             <template #default="{ row }">{{ getSubjectName(row.subjectId) }}</template>
           </el-table-column>
-          <el-table-column prop="term" label="期次" width="140" />
-          <el-table-column prop="period" label="上课时间" min-width="200" />
-          <el-table-column prop="location" label="教室" width="140" />
+          <el-table-column prop="term" label="期次" width="130" />
+          <el-table-column prop="period" label="上课时间" min-width="180" />
+          <el-table-column prop="location" label="教室" width="110" />
+          <el-table-column label="学生" width="80">
+            <template #default="{ row }">{{ row.enrolledCount || 0 }}/{{ row.capacity || 0 }}</template>
+          </el-table-column>
+          <el-table-column label="课时报酬" width="110">
+            <template #default="{ row }">¥{{ (row.teacherRemuneration || 0).toFixed(2) }}</template>
+          </el-table-column>
         </el-table>
-        <el-empty v-if="teacherQueried && !teacherSchedule.length" description="该教师暂无排课记录" />
-      </el-tab-pane>
-    </el-tabs>
+
+        <div v-if="teacherSchedule.length" class="salary-summary">
+          <div class="salary-row">
+            <span>授课班级数</span>
+            <b>{{ teacherSchedule.length }} 个</b>
+          </div>
+          <div class="salary-row">
+            <span>课时报酬合计</span>
+            <b class="salary-total">¥{{ totalRemuneration.toFixed(2) }}</b>
+          </div>
+        </div>
+
+        <el-empty v-else-if="teacherQueried" description="暂无排课记录" />
+      </el-card>
+    </template>
+
+    <!-- 管理端 -->
+    <template v-else>
+      <!-- 步骤1：未查询 → 只显示 ID 输入 -->
+      <el-card v-if="!scheduleQueried" shadow="hover" style="max-width:460px">
+        <template #header>
+          <span style="font-weight:600">课表查询</span>
+        </template>
+        <el-form :inline="true">
+          <el-form-item label="学号/工号">
+            <el-input v-model="scheduleId" placeholder="请输入学生ID或教师ID" @keyup.enter="querySchedule" style="width:200px" />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" :loading="scheduleLoading" @click="querySchedule">查询</el-button>
+          </el-form-item>
+        </el-form>
+      </el-card>
+
+      <!-- 步骤2：已查询 → 全新结果页，隐藏输入卡片 -->
+      <template v-if="scheduleQueried">
+        <!-- 没有匹配结果 -->
+        <template v-if="!studentSchedule.length && !teacherSchedule.length">
+          <el-card shadow="hover" style="max-width:460px;margin-bottom:20px">
+            <template #header>
+              <span style="font-weight:600">课表查询</span>
+            </template>
+            <el-form :inline="true">
+              <el-form-item label="学号/工号">
+                <el-input v-model="scheduleId" placeholder="请输入学生ID或教师ID" @keyup.enter="querySchedule" style="width:200px" />
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" :loading="scheduleLoading" @click="querySchedule">查询</el-button>
+              </el-form-item>
+            </el-form>
+            <div style="color:#F56C6C;font-size:13px">未找到该ID对应的学生或教师记录</div>
+          </el-card>
+        </template>
+
+        <!-- 学生课表结果 -->
+        <template v-if="studentSchedule.length">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+            <el-icon size="22" color="#5b6abf"><UserFilled /></el-icon>
+            <span style="font-size:17px;font-weight:600;color:#1a1a1a">
+              {{ studentInfo.name || '学生' + scheduleId }}
+            </span>
+            <el-tag type="info" size="small">学号 {{ scheduleId }}</el-tag>
+            <el-button size="small" text type="primary" @click="resetSchedule" style="margin-left:8px">
+              <el-icon style="margin-right:2px"><Switch /></el-icon>更换查询
+            </el-button>
+          </div>
+          <el-table :data="studentSchedule" stripe border v-loading="scheduleLoading">
+            <el-table-column prop="classCode" label="班级代号" width="150" />
+            <el-table-column label="科目" width="100">
+              <template #default="{ row }">{{ getSubjectName(row.subjectId) }}</template>
+            </el-table-column>
+            <el-table-column label="任课教师" width="100">
+              <template #default="{ row }">{{ getTeacherName(row.teacherId) }}</template>
+            </el-table-column>
+            <el-table-column prop="term" label="期次" width="140" />
+            <el-table-column prop="period" label="上课时间" min-width="200" />
+            <el-table-column prop="location" label="教室" width="140" />
+          </el-table>
+        </template>
+
+        <!-- 教师课表结果 -->
+        <template v-if="teacherSchedule.length">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">
+            <el-icon size="22" color="#5b6abf"><Avatar /></el-icon>
+            <span style="font-size:17px;font-weight:600;color:#1a1a1a">
+              {{ teacherInfo.name || '教师' + scheduleId }}
+            </span>
+            <el-tag type="info" size="small">工号 {{ scheduleId }}</el-tag>
+            <el-tag v-if="teacherInfo.level" size="small" effect="plain">{{ teacherInfo.level }}</el-tag>
+            <el-button size="small" text type="primary" @click="resetSchedule" style="margin-left:8px">
+              <el-icon style="margin-right:2px"><Switch /></el-icon>更换查询
+            </el-button>
+          </div>
+          <el-table :data="teacherSchedule" stripe border v-loading="scheduleLoading">
+            <el-table-column prop="classCode" label="班级代号" width="150" />
+            <el-table-column label="科目" width="100">
+              <template #default="{ row }">{{ getSubjectName(row.subjectId) }}</template>
+            </el-table-column>
+            <el-table-column prop="term" label="期次" width="140" />
+            <el-table-column prop="period" label="上课时间" min-width="200" />
+            <el-table-column prop="location" label="教室" width="140" />
+          </el-table>
+        </template>
+      </template>
+    </template>
   </div>
 </template>
 
@@ -110,45 +155,71 @@ import { useAuthStore } from '@/stores/auth'
 import { getStudentSchedule, getTeacherSchedule } from '@/api/schedule'
 import { getSubjects } from '@/api/subject'
 import { getTeachers } from '@/api/teacher'
+import { getStudentById } from '@/api/student'
 import { ElMessage } from 'element-plus'
-import { Calendar } from '@element-plus/icons-vue'
+import { Calendar, UserFilled, Avatar, Switch } from '@element-plus/icons-vue'
 
 const auth = useAuthStore()
 
-const studentId = ref('')
-const studentSchedule = ref([])
 const studentLoading = ref(false)
 const studentQueried = ref(false)
-
-async function queryStudentSchedule() {
-  if (auth.isAdmin && !studentId.value) {
-    ElMessage.warning('请输入学生ID')
-    return
-  }
-  studentLoading.value = true
-  studentQueried.value = true
-  try {
-    studentSchedule.value = await getStudentSchedule(studentId.value)
-  } catch (e) {}
-  studentLoading.value = false
-}
-
-const teacherId = ref('')
-const teacherSchedule = ref([])
 const teacherLoading = ref(false)
 const teacherQueried = ref(false)
 
-async function queryTeacherSchedule() {
-  if (auth.isAdmin && !teacherId.value) {
-    ElMessage.warning('请输入教师ID')
+// ======== 管理员端 ========
+const scheduleId = ref('')
+const scheduleLoading = ref(false)
+const scheduleQueried = ref(false)
+const studentInfo = ref({ name: '' })
+const teacherInfo = ref({ name: '', level: '' })
+
+const studentSchedule = ref([])
+const teacherSchedule = ref([])
+
+async function querySchedule() {
+  if (!scheduleId.value) {
+    ElMessage.warning('请输入学生ID或教师ID')
     return
   }
-  teacherLoading.value = true
-  teacherQueried.value = true
-  try {
-    teacherSchedule.value = await getTeacherSchedule(teacherId.value)
-  } catch (e) {}
-  teacherLoading.value = false
+  scheduleLoading.value = true
+  const id = Number(scheduleId.value)
+
+  // 并行查询：课表 + 学生信息 + 教师信息
+  const [stuResult, teaResult, stuInfoResult] = await Promise.allSettled([
+    getStudentSchedule(id),
+    getTeacherSchedule(id),
+    getStudentById(id),
+  ])
+
+  studentSchedule.value = stuResult.status === 'fulfilled' ? stuResult.value : []
+  teacherSchedule.value = teaResult.status === 'fulfilled' ? teaResult.value : []
+
+  // 从学生表获取姓名
+  if (stuInfoResult.status === 'fulfilled' && stuInfoResult.value) {
+    studentInfo.value = { name: stuInfoResult.value.studentName || '' }
+  } else {
+    studentInfo.value = { name: '' }
+  }
+
+  // 从教师列表获取教师姓名和等级
+  if (teacherSchedule.value.length) {
+    const t = teachers.value.find(t => t.teacherId === id)
+    teacherInfo.value = { name: t ? t.teacherName : '', level: t ? t.teacherLevel : '' }
+  } else {
+    teacherInfo.value = { name: '', level: '' }
+  }
+
+  scheduleQueried.value = true
+  scheduleLoading.value = false
+}
+
+function resetSchedule() {
+  scheduleId.value = ''
+  scheduleQueried.value = false
+  studentSchedule.value = []
+  teacherSchedule.value = []
+  studentInfo.value = { name: '' }
+  teacherInfo.value = { name: '', level: '' }
 }
 
 const totalRemuneration = computed(() => {
@@ -166,12 +237,18 @@ onMounted(async () => {
   } catch (e) {}
 
   if (auth.isStudent && auth.userId) {
-    studentId.value = auth.userId
-    queryStudentSchedule()
+    studentLoading.value = true
+    studentQueried.value = true
+    const id = Number(auth.userId)
+    try { studentSchedule.value = await getStudentSchedule(id) } catch (e) {}
+    studentLoading.value = false
   }
   if (auth.isTeacher && auth.userId) {
-    teacherId.value = auth.userId
-    queryTeacherSchedule()
+    teacherLoading.value = true
+    teacherQueried.value = true
+    const id = Number(auth.userId)
+    try { teacherSchedule.value = await getTeacherSchedule(id) } catch (e) {}
+    teacherLoading.value = false
   }
 })
 

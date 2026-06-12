@@ -61,6 +61,12 @@
             <version>4.0.1</version>
             <scope>test</scope>
         </dependency>
+        <!-- Jasypt 加密（加分项：敏感数据加解密） -->
+        <dependency>
+            <groupId>com.github.ulisesbocchio</groupId>
+            <artifactId>jasypt-spring-boot-starter</artifactId>
+            <version>3.0.5</version>
+        </dependency>
     </dependencies>
 
     <build>

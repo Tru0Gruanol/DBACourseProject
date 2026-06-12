@@ -17,6 +17,10 @@
         <el-icon><EditPen /></el-icon>
         <span>学生报名</span>
       </el-menu-item>
+      <el-menu-item v-if="visibleMenu('myCourses')" index="/my-courses">
+        <el-icon><Notebook /></el-icon>
+        <span>已选课程</span>
+      </el-menu-item>
       <el-menu-item v-if="visibleMenu('subjects')" index="/subjects">
         <el-icon><Notebook /></el-icon>
         <span>科目管理</span>
@@ -109,7 +113,7 @@ const router = useRouter()
 const auth = useAuthStore()
 
 const adminMenu = ['enrollment', 'subjects', 'classes', 'teachers', 'students', 'fee', 'schedule']
-const studentMenu = ['enrollment', 'schedule']
+const studentMenu = ['enrollment', 'myCourses', 'schedule']
 const teacherMenu = ['schedule']
 
 const menuMap = { admin: adminMenu, student: studentMenu, teacher: teacherMenu }
