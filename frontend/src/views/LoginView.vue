@@ -82,27 +82,28 @@ async function handleLogin() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #e8edf5 0%, #f0f2f5 50%, #eef1f8 100%);
+  background: linear-gradient(160deg, #eef0f8 0%, #f4f5f9 40%, #f0f2f7 100%);
 }
 .login-card {
   width: 420px;
   background: #fff;
-  border-radius: 12px;
-  padding: 40px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  padding: 44px 40px;
+  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.08), 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 .login-header {
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 .login-header h1 {
   font-size: 20px;
-  margin: 12px 0 4px;
-  color: #1a1a1a;
+  margin: 14px 0 4px;
+  color: #1b1c22;
+  font-weight: 600;
 }
 .login-header p {
   font-size: 13px;
-  color: #909399;
+  color: #8c8d96;
   margin: 0;
 }
 </style>

@@ -361,26 +361,33 @@ function formatDate(dateStr) {
 }
 .stat-card {
   flex: 1;
-  border-radius: 8px;
-  padding: 16px 20px;
+  border-radius: 12px;
+  padding: 20px 24px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  border: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  transition: box-shadow 0.2s ease;
 }
-.stat-card.blue  { background: #ecf5ff; }
+.stat-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.stat-card.blue  { background: #eef0fc; }
 .stat-card.green { background: #f0f9eb; }
 .stat-card.red   { background: #fef0f0; }
 
 .stat-label {
   font-size: 13px;
-  color: #909399;
+  color: #8b8c95;
 }
 .stat-value {
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 700;
-  color: #303133;
+  color: #1b1c22;
+  letter-spacing: -0.5px;
 }
-.stat-card.blue  .stat-value { color: #409eff; }
-.stat-card.green .stat-value { color: #67c23a; }
-.stat-card.red   .stat-value { color: #f56c6c; }
+.stat-card.blue  .stat-value { color: #5b6abf; }
+.stat-card.green .stat-value { color: #52c41a; }
+.stat-card.red   .stat-value { color: #ff4d4f; }
 </style>

@@ -4,11 +4,14 @@ import com.training.centermanagement.entity.Account;
 import com.training.centermanagement.entity.Classes;
 import com.training.centermanagement.entity.Student;
 import com.training.centermanagement.entity.StudentEnrollment;
+import com.training.centermanagement.entity.Subject;
+import com.training.centermanagement.entity.Teacher;
 import com.training.centermanagement.mapper.AccountMapper;
 import com.training.centermanagement.mapper.ClassesMapper;
 import com.training.centermanagement.mapper.StudentEnrollmentMapper;
 import com.training.centermanagement.mapper.StudentMapper;
-import com.training.centermanagement.mapper.NotificationMapper;
+import com.training.centermanagement.mapper.SubjectMapper;
+import com.training.centermanagement.mapper.TeacherMapper;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -17,6 +20,19 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.*;
 
+/**
+ * 学生报名与退课业务服务。
+ *
+ * 核心职责：
+ * <ul>
+ *   <li>报名事务（processEnrollment）：七重门禁 + 双表原子写入</li>
+ *   <li>管理端退课：验证报名 → 全额退款（负向冲销）→ 软删除</li>
+ *   <li>学生申请退课 + 管理员审批（通过/拒绝）</li>
+ * </ul>
+ *
+ * @see AccountService      账目相关的缴费/冲销操作
+ * @see NotificationService 退课审批的通知发送
+ */
 @Service
 public class StudentEnrollmentService {
 
@@ -29,8 +45,31 @@ public class StudentEnrollmentService {
     @Autowired
     private StudentMapper studentMapper;
     @Autowired
+    private SubjectMapper subjectMapper;
+    @Autowired
+    private TeacherMapper teacherMapper;
+    @Autowired
     private NotificationService notificationService;
 
+    /**
+     * 学生报名核心事务。
+     *
+     * 执行七重门禁校验后，原子性地完成报名登记与账目录入：
+     * <ol>
+     *   <li>学生存在性校验</li>
+     *   <li>同班级防重复（已在读则拒绝）</li>
+     *   <li>cancelled 记录复用检测（重新报名走 UPDATE）</li>
+     *   <li>班级存在性校验</li>
+     *   <li>同科目防重复（遍历 active 报名比对 subject_id）</li>
+     *   <li>满员检查 + 学生总维度缴费校验</li>
+     *   <li>原子性名额递增（WHERE enrolled_count &lt; capacity 防超卖）</li>
+     * </ol>
+     *
+     * @param studentId 学生编号
+     * @param classCode 班级代号
+     * @param payment   本次缴费金额（可为 0）
+     * @return 操作结果中文提示
+     */
     @Transactional(rollbackFor = Exception.class)
     public String processEnrollment(Integer studentId, String classCode, BigDecimal payment) {
         // 1. 检查学生是否存在
@@ -111,10 +150,50 @@ public class StudentEnrollmentService {
         account.setAmountPaid(payment);
         accountMapper.insertAccount(account);
 
+        // 10. 发送通知
+        Subject subject = subjectMapper.getSubjectById(cls.getSubjectId());
+        String subjectName = subject != null ? subject.getSubjectName() : "";
+        Teacher teacher = teacherMapper.getTeacherById(cls.getTeacherId());
+        String teacherName = teacher != null ? teacher.getTeacherName() : "";
+
+        // 通知管理员
+        if (payment.compareTo(BigDecimal.ZERO) > 0) {
+            notificationService.send(0, "admin",
+                "📋 新报名",
+                student.getStudentName() + " 已报名 " + classCode + "（" + subjectName + "）并缴纳 ¥" + payment);
+        } else {
+            notificationService.send(0, "admin",
+                "📋 新报名（未缴费）",
+                student.getStudentName() + " 已报名 " + classCode + "（" + subjectName + "），尚未缴费");
+        }
+
+        // 通知教师
+        notificationService.send(cls.getTeacherId(), "teacher",
+            "👤 新学员",
+            student.getStudentName() + " 已加入您的班级 " + classCode + "（" + subjectName + "）");
+
+        // 管理员代报名 → 通知学生
+        // 判断依据：学生端调用时 AuthController 注入的 userId 与学生 ID 一致；管理端则不一致
+        // 此处无法直接区分，但即便多发一条也不影响——学生端自己报名时收到"管理员已为您报名"也不违和
+        notificationService.send(studentId, "student",
+            "📝 报名成功",
+            "您已成功报名 " + classCode + "（" + subjectName + "），授课教师：" + teacherName + "，学费 ¥" + cls.getFee());
+
+        // 满员检测
+        if (cls.getEnrolledCount() + 1 >= cls.getCapacity()) {
+            notificationService.send(0, "admin",
+                "🈵 班级满员",
+                classCode + "（" + subjectName + "）已满员（" + (cls.getEnrolledCount() + 1) + "/" + cls.getCapacity() + "）");
+        }
+
         return "报名成功！多表事务已提交。已交款：" + payment + " 元。";
     }
 
-    // 管理端直接退课 → 立即退款
+    /**
+     * 管理端直接退课。
+     * 验证报名存在后：全额退款（负向冲销）+ 软删除 + 恢复班级名额 + 通知学生。
+     * 退款通过 accounts 表负向记录实现，保留完整审计轨迹。
+     */
     @Transactional(rollbackFor = Exception.class)
     public String cancelEnrollment(Integer studentId, String classCode) {
         StudentEnrollment enrollment = studentEnrollmentMapper.selectByStudentAndClass(studentId, classCode);
@@ -137,25 +216,35 @@ public class StudentEnrollmentService {
         studentEnrollmentMapper.updateStatus(studentId, classCode, "cancelled");
         classesMapper.decrementEnrolledCount(classCode);
 
+        // 通知学生
         notificationService.send(studentId, "student",
             "退课通知", "管理员已将您从班级 " + classCode + " 退课，已退款 " + totalPaid + " 元。");
+        // 通知教师
+        Student student = studentMapper.selectStudentById(studentId);
+        String studentName = student != null ? student.getStudentName() : String.valueOf(studentId);
+        notificationService.send(cls.getTeacherId(), "teacher",
+            "👋 学员退课", studentName + " 已退出您的班级 " + classCode + "，当前在读 " + (cls.getEnrolledCount() - 1) + "/" + cls.getCapacity() + " 人");
         return "退课成功！已退款 " + totalPaid + " 元。";
     }
 
-    // 学生申请退课 → 状态改为 pending_cancel，等待管理端审批
+    /**
+     * 学生申请退课。
+     * 将报名状态标记为 pending_cancel 并通知管理员审批，
+     * 而非直接退款——模拟真实业务中的审批流程。
+     */
     public String requestCancel(Integer studentId, String classCode) {
         StudentEnrollment enrollment = studentEnrollmentMapper.selectByStudentAndClass(studentId, classCode);
         if (enrollment == null) return "申请失败：该学生未报名此班级或已退课！";
 
         studentEnrollmentMapper.updateStatus(studentId, classCode, "pending_cancel");
         Classes cls = classesMapper.getClassByCode(classCode);
-        String cn = cls != null ? cls.getClassCode() : classCode;
+        String className = cls != null ? cls.getClassCode() : classCode;
         notificationService.send(0, "admin",
-            "退课申请", "学生 " + studentId + " 申请退出班级 " + cn + "，请到收费管理审批");
+            "退课申请", "学生 " + studentId + " 申请退出班级 " + className + "，请到收费管理审批");
         return "退课申请已提交，等待管理员审批。";
     }
 
-    // 管理员审批通过 → 执行退款 + 通知学生
+    /** 管理员审批通过退课申请 → 执行退款 + 通知学生。与 cancelEnrollment 逻辑一致。 */
     @Transactional(rollbackFor = Exception.class)
     public String approveCancel(Integer studentId, String classCode) {
         StudentEnrollment enrollment = studentEnrollmentMapper.selectAnyByStudentAndClass(studentId, classCode);
@@ -179,10 +268,15 @@ public class StudentEnrollmentService {
         // 通知学生
         notificationService.send(studentId, "student",
             "退课已通过", "您退出班级 " + classCode + " 的申请已审批通过，已退款 " + totalPaid + " 元。");
+        // 通知教师
+        Student stu = studentMapper.selectStudentById(studentId);
+        String stuName = stu != null ? stu.getStudentName() : String.valueOf(studentId);
+        notificationService.send(cls.getTeacherId(), "teacher",
+            "👋 学员退课", stuName + " 已退出您的班级 " + classCode + "，当前在读 " + (cls.getEnrolledCount() - 1) + "/" + cls.getCapacity() + " 人");
         return "审批通过，已退款 " + totalPaid + " 元。";
     }
 
-    // 管理员拒绝 → 恢复 active + 通知学生
+    /** 管理员拒绝退课申请 → 恢复 active 状态 + 通知学生。无需操作账目。 */
     public String rejectCancel(Integer studentId, String classCode) {
         StudentEnrollment enrollment = studentEnrollmentMapper.selectAnyByStudentAndClass(studentId, classCode);
         if (enrollment == null || !"pending_cancel".equals(enrollment.getStatus())) {
@@ -194,7 +288,7 @@ public class StudentEnrollmentService {
         return "已拒绝该退课申请。";
     }
 
-    // 查询所有待审批的退课
+    /** 查询所有待审批的退课申请，组装含学生姓名、班级信息、实缴总额的视图对象。 */
     public List<Map<String, Object>> getPendingCancels() {
         List<StudentEnrollment> list = studentEnrollmentMapper.getPendingCancels();
         List<Map<String, Object>> result = new ArrayList<>();

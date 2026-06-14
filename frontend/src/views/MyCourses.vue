@@ -291,10 +291,11 @@ function formatDate(dateStr) {
 <style scoped>
 .summary-card {
   margin-top: 20px;
-  background: #fafafc;
-  border: 1px solid #e8e8ed;
-  border-radius: 4px;
-  padding: 16px 24px;
+  background: #f9fafb;
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  padding: 20px 24px;
   display: flex;
   gap: 32px;
 }
@@ -303,10 +304,10 @@ function formatDate(dateStr) {
   flex-direction: column;
   gap: 4px;
   font-size: 13px;
-  color: #909399;
+  color: #8b8c95;
 }
 .summary-item b {
   font-size: 18px;
-  color: #303133;
+  color: #1b1c22;
 }
 </style>

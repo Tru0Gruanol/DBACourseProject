@@ -1,5 +1,5 @@
 <template>
-  <el-aside width="220px" style="background:#fff;border-right:1px solid #eeeef2;overflow:hidden;display:flex;flex-direction:column">
+  <el-aside width="220px" style="background:#fff;box-shadow:2px 0 12px rgba(0,0,0,0.05);overflow:hidden;display:flex;flex-direction:column">
     <div style="padding:20px 20px 16px;display:flex;align-items:center;gap:10px">
       <el-icon size="22" color="#5b6abf"><School /></el-icon>
       <span style="font-size:15px;font-weight:600;color:#1a1a1a">培训中心管理</span>
@@ -48,7 +48,7 @@
     </el-menu>
 
     <!-- 底部用户信息区 -->
-    <div style="padding:12px 16px;border-top:1px solid #eeeef2">
+    <div style="padding:12px 16px">
       <!-- 学生/教师：通知铃铛 -->
       <div v-if="auth.isStudent || auth.isTeacher" style="margin-bottom:8px;display:flex;align-items:center;gap:8px">
         <el-popover placement="right-start" :width="320" trigger="click" @show="loadNotifications">
@@ -65,7 +65,7 @@
           </div>
           <div v-if="notifications.length===0" style="color:#909399;font-size:13px;text-align:center;padding:20px 0">暂无通知</div>
           <div v-for="n in notifications" :key="n.id"
-            style="padding:8px 0;border-bottom:1px solid #f2f2f6;cursor:pointer"
+            style="padding:8px 0;cursor:pointer"
             :style="{ opacity: n.isRead ? 0.5 : 1 }"
             @click="readOne(n)">
             <div style="font-size:13px;font-weight:500">{{ n.title }}</div>
@@ -94,7 +94,7 @@
             </div>
             <div v-if="notifications.length===0" style="color:#909399;font-size:13px;text-align:center;padding:20px 0">暂无通知</div>
             <div v-for="n in notifications" :key="n.id"
-              style="padding:8px 0;border-bottom:1px solid #f2f2f6;cursor:pointer"
+              style="padding:8px 0;cursor:pointer"
               :style="{ opacity: n.isRead ? 0.5 : 1 }"
               @click="readOne(n)">
               <div style="font-size:13px;font-weight:500">{{ n.title }}</div>
@@ -260,15 +260,18 @@ async function submitChangePassword() {
 .el-menu-item {
   height: 40px;
   line-height: 40px;
-  margin: 1px 0;
-  border-radius: 4px;
+  margin: 2px 0;
+  border-radius: 8px;
   font-size: 14px;
+  transition: all 0.2s ease;
 }
 .el-menu-item:hover {
-  background: #f5f5fa !important;
+  background: #f4f5fb !important;
+  color: #5b6abf !important;
 }
 .el-menu-item.is-active {
-  background: #edf0fc !important;
-  font-weight: 500;
+  background: #eef0fc !important;
+  color: #5b6abf !important;
+  font-weight: 600;
 }
 </style>

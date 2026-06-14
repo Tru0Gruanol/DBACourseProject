@@ -1,25 +1,58 @@
-/* ===== 全局 ===== */
+/* ============================================================
+   托管培训中心信息管理系统 — 全局样式
+   设计语言：现代简约 · 无边框 · 柔和阴影 · 克制配色
+   ============================================================ */
+
+/* -------- CSS 变量 -------- */
+:root {
+  --primary: #5b6abf;
+  --primary-light: #eef0fc;
+  --primary-hover: #4a5aaf;
+  --bg: #f4f5f9;
+  --surface: #ffffff;
+  --text: #1b1c22;
+  --text-2: #8b8c95;
+  --text-3: #b4b5bd;
+  --success: #52c41a;
+  --success-bg: #f0f9eb;
+  --danger: #ff4d4f;
+  --danger-bg: #fef0f0;
+  --warning: #faad14;
+  --warning-bg: #fef7e6;
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.10);
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-lg: 12px;
+  --transition: 0.2s ease;
+}
+
+/* -------- 全局重置 -------- */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
   -webkit-font-smoothing: antialiased;
-  color: #1a1a1a;
-  background: #f7f8fa;
+  -moz-osx-font-smoothing: grayscale;
+  color: var(--text);
+  background: var(--bg);
   font-size: 14px;
+  line-height: 1.6;
 }
 
-/* ===== 路由切换淡入淡出 ===== */
+/* -------- 路由切换 -------- */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.15s ease;
+  transition: opacity 0.2s ease;
 }
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
 }
 
-/* ===== 页面标题 ===== */
+/* -------- 页面标题 -------- */
 .page-header {
   display: flex;
   align-items: center;
@@ -27,40 +60,84 @@ body {
   margin-bottom: 24px;
 }
 .page-header .el-icon {
-  font-size: 20px;
-  color: #5b6abf;
+  font-size: 22px;
+  color: var(--primary);
 }
 .page-header h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
-  color: #1a1a1a;
+  color: var(--text);
+  letter-spacing: -0.3px;
 }
 
-/* ===== 卡片：去掉阴影，用细边框 ===== */
+/* ============================================================
+   卡片 — 去除边框，使用柔和阴影
+   ============================================================ */
 .el-card {
-  border-radius: 4px !important;
-  border: 1px solid #e8e8ed !important;
-  box-shadow: none !important;
+  border: none !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-sm) !important;
+  transition: box-shadow var(--transition) !important;
+}
+.el-card.is-hover-shadow:hover,
+.el-card[shadow="hover"]:hover {
+  box-shadow: var(--shadow-md) !important;
+}
+.el-card__header {
+  border-bottom: none !important;
+  padding: 20px 24px 8px !important;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text);
+}
+.el-card__body {
+  padding: 16px 24px 24px !important;
 }
 
-/* ===== 表格 ===== */
+/* ============================================================
+   表格 — 去除网格线，靠留白和斑马纹区分行
+   ============================================================ */
 .el-table {
   font-size: 14px;
-  border-radius: 4px;
+  border-radius: var(--radius);
+  border: none !important;
+  --el-table-border-color: transparent;
+  --el-table-border: none;
 }
+.el-table__inner-wrapper::before {
+  height: 0 !important;
+}
+.el-table td.el-table__cell,
 .el-table th.el-table__cell {
-  background: #fafafc;
-  color: #6b7280;
-  font-weight: 500;
-  font-size: 13px;
-  border-bottom: 2px solid #eeeef2;
+  border: none !important;
 }
+/* 表头 */
+.el-table th.el-table__cell {
+  background: transparent !important;
+  color: var(--text-2);
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.4px;
+  padding: 14px 0 10px;
+  border-bottom: 1px solid #eeeef2 !important;
+}
+/* 数据行 */
 .el-table td.el-table__cell {
-  border-bottom: 1px solid #f2f2f6;
+  padding: 14px 0;
+}
+/* 斑马纹 */
+.el-table--striped .el-table__body-wrapper .el-table__row--striped td.el-table__cell {
+  background: #fafafc !important;
+}
+/* 行悬浮 */
+.el-table__body-wrapper .el-table__row:hover > td.el-table__cell {
+  background: #f5f6fb !important;
 }
 
-/* ===== 统计数字（收费页） ===== */
+/* ============================================================
+   统计卡片 — 无边框，有色背景
+   ============================================================ */
 .stat-cards {
   display: flex;
   gap: 16px;
@@ -69,58 +146,184 @@ body {
 .stat-card {
   flex: 1;
   padding: 20px 24px;
-  border-radius: 4px;
-  background: #fff;
-  border: 1px solid #e8e8ed;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: none !important;
+  box-shadow: var(--shadow-xs);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  transition: box-shadow var(--transition);
+}
+.stat-card:hover {
+  box-shadow: var(--shadow-sm);
 }
 .stat-card .stat-label {
   font-size: 13px;
-  color: #8c8c9a;
+  color: var(--text-2);
 }
 .stat-card .stat-value {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 700;
-  color: #1a1a1a;
+  color: var(--text);
+  letter-spacing: -0.5px;
 }
-.stat-card.blue  { border-left: 3px solid #5b6abf; }
-.stat-card.green { border-left: 3px solid #52c41a; }
-.stat-card.red   { border-left: 3px solid #ff4d4f; }
-.stat-card.blue  .stat-value { color: #5b6abf; }
-.stat-card.green .stat-value { color: #52c41a; }
-.stat-card.red   .stat-value { color: #ff4d4f; }
+.stat-card.blue  { border-left: none; background: var(--primary-light); }
+.stat-card.green { border-left: none; background: var(--success-bg); }
+.stat-card.red   { border-left: none; background: var(--danger-bg); }
+.stat-card.blue  .stat-value { color: var(--primary); }
+.stat-card.green .stat-value { color: var(--success); }
+.stat-card.red   .stat-value { color: var(--danger); }
 
-/* ===== 标签页 ===== */
+/* ============================================================
+   标签页 — 去除边框
+   ============================================================ */
 .el-tabs--border-card {
-  border-radius: 4px !important;
-  box-shadow: none !important;
-  border: 1px solid #e8e8ed !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-sm) !important;
+  border: none !important;
+  background: transparent !important;
+}
+.el-tabs--border-card > .el-tabs__header {
+  background: var(--surface) !important;
+  border-bottom: 1px solid #eeeef2 !important;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+.el-tabs--border-card > .el-tabs__header .el-tabs__item {
+  border: none !important;
+  color: var(--text-2);
+  font-size: 14px;
+  padding: 0 20px;
+  transition: color var(--transition);
+}
+.el-tabs--border-card > .el-tabs__header .el-tabs__item.is-active {
+  color: var(--primary);
+  font-weight: 500;
+}
+.el-tabs--border-card > .el-tabs__content {
+  padding: 24px;
+  background: var(--surface);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
-/* ===== 主内容区 ===== */
+/* ============================================================
+   主内容区
+   ============================================================ */
 .el-main {
   padding: 28px 32px !important;
-  background: #f7f8fa;
+  background: var(--bg);
 }
 
-/* ===== 查询表单容器 ===== */
+/* ============================================================
+   查询表单容器 — 无边框
+   ============================================================ */
 .query-bar {
-  background: #fff;
-  border: 1px solid #e8e8ed;
-  border-radius: 4px;
+  background: var(--surface);
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
   padding: 16px 20px;
   margin-bottom: 20px;
 }
 
-/* ===== 空状态 ===== */
+/* ============================================================
+   空状态
+   ============================================================ */
 .el-empty {
   padding: 48px 0;
 }
 
-/* ===== 对话框 ===== */
+/* ============================================================
+   对话框 — 更大圆角
+   ============================================================ */
 .el-dialog {
-  border-radius: 4px !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-lg) !important;
+}
+.el-dialog__header {
+  padding: 24px 24px 0;
+  font-weight: 600;
+  font-size: 16px;
+}
+.el-dialog__body {
+  padding: 20px 24px;
+}
+.el-dialog__footer {
+  padding: 0 24px 20px;
 }
 
+/* ============================================================
+   按钮 — 微调圆角与过渡
+   ============================================================ */
+.el-button {
+  border-radius: var(--radius-sm) !important;
+  transition: all var(--transition);
+  font-weight: 500;
+}
+.el-button--primary {
+  --el-button-bg-color: var(--primary);
+  --el-button-border-color: var(--primary);
+  --el-button-hover-bg-color: var(--primary-hover);
+  --el-button-hover-border-color: var(--primary-hover);
+}
+
+/* ============================================================
+   输入框 — 更柔和
+   ============================================================ */
+.el-input__wrapper {
+  border-radius: var(--radius-sm) !important;
+  box-shadow: none !important;
+  border: 1px solid #e4e5ea;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.el-input__wrapper:hover {
+  border-color: #c8c9d2;
+}
+.el-input.is-focus .el-input__wrapper,
+.el-input__wrapper.is-focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 2px rgba(91, 106, 191, 0.12) !important;
+}
+
+/* 选择器、数字输入 — 与输入框统一 */
+.el-select .el-input__wrapper,
+.el-input-number .el-input__wrapper {
+  border-radius: var(--radius-sm) !important;
+}
+
+/* ============================================================
+   标签 — 微调
+   ============================================================ */
+.el-tag {
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+}
+.el-tag--small {
+  border-radius: 4px;
+}
+
+/* ============================================================
+   分页 — 微调
+   ============================================================ */
+.el-pagination .el-pager li {
+  border-radius: var(--radius-sm);
+}
+
+/* ============================================================
+   消息提示 — 微调
+   ============================================================ */
+.el-message {
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+}
+
+/* ============================================================
+   通用过渡：交互元素均享 0.2s 过渡
+   ============================================================ */
+.el-table .el-button,
+.el-card .el-button,
+.el-menu-item,
+.el-tabs__item,
+.el-tag {
+  transition: all var(--transition);
+}

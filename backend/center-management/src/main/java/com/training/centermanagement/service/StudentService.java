@@ -19,6 +19,8 @@ public class StudentService {
     private StudentEnrollmentMapper studentEnrollmentMapper;
     @Autowired
     private AccountMapper accountMapper;
+    @Autowired
+    private NotificationService notificationService;
 
     public String addStudent(Student student) {
         // 检查学生ID是否已存在
@@ -28,6 +30,10 @@ public class StudentService {
         }
         student.setRegistrationTime(new Date());
         studentMapper.insertStudent(student);
+        // 通知学生
+        notificationService.send(student.getStudentId(), "student",
+            "🧑 账号已创建",
+            student.getStudentName() + " 同学，您的账号已创建，学号 " + student.getStudentId() + "，初始密码 111111，请及时登录修改密码");
         return "学生建档成功！";
     }
 

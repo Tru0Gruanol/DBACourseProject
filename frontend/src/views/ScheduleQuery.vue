@@ -332,9 +332,10 @@ function getTeacherName(teacherId) {
   align-items: center;
   justify-content: space-between;
   background: #fff;
-  border: 1px solid #e8e8ed;
-  border-radius: 4px;
-  padding: 16px 24px;
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  padding: 18px 24px;
   margin-bottom: 20px;
 }
 .teacher-info-left {
@@ -348,10 +349,11 @@ function getTeacherName(teacherId) {
 }
 .salary-summary {
   margin-top: 20px;
-  background: #fafafc;
-  border: 1px solid #e8e8ed;
-  border-radius: 4px;
-  padding: 16px 24px;
+  background: #f9fafb;
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  padding: 20px 24px;
   display: flex;
   gap: 32px;
 }
@@ -360,11 +362,11 @@ function getTeacherName(teacherId) {
   flex-direction: column;
   gap: 4px;
   font-size: 13px;
-  color: #909399;
+  color: #8b8c95;
 }
 .salary-row b {
   font-size: 18px;
-  color: #303133;
+  color: #1b1c22;
 }
 .salary-total {
   color: #5b6abf !important;

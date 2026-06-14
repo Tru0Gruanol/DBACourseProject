@@ -9,7 +9,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/schedules")
-@CrossOrigin
 public class ScheduleController {
 
     @Autowired

@@ -9,7 +9,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/teachers")
-@CrossOrigin
 public class TeacherController {
     @Autowired
     private TeacherService teacherService;

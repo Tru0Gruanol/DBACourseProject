@@ -9,7 +9,7 @@
     <SidebarNav />
 
     <el-container>
-      <el-header style="background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 32px;border-bottom:1px solid #eeeef2;height:48px">
+      <el-header style="background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 32px;box-shadow:0 1px 4px rgba(0,0,0,0.06);height:48px">
         <span style="font-size:13px;color:#8c8c9a">托管培训中心信息管理系统</span>
         <span style="font-size:12px;color:#5b6abf">
           <el-icon style="margin-right:2px;vertical-align:middle"><User /></el-icon>

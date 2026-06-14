@@ -1,5 +1,7 @@
 package com.training.centermanagement.config;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -23,17 +25,17 @@ import java.sql.Statement;
 @Profile("reset")
 public class ResetDatabase implements ApplicationRunner {
 
+    private static final Logger log = LoggerFactory.getLogger(ResetDatabase.class);
+
     @Autowired
     private DataSource dataSource;
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
-        System.out.println("========================================");
-        System.out.println("[ResetDatabase] 开始重置数据库...");
-        System.out.println("========================================");
+        log.info("======== 开始重置数据库 ========");
 
         try (Connection conn = dataSource.getConnection()) {
-            // 1. 删除所有业务表
+            // 1. 删除所有业务表（按外键依赖顺序）
             String[] drops = {
                 "DROP TABLE IF EXISTS accounts",
                 "DROP TABLE IF EXISTS student_enrollments",
@@ -43,26 +45,23 @@ public class ResetDatabase implements ApplicationRunner {
                 "DROP TABLE IF EXISTS subjects",
                 "DROP TABLE IF EXISTS teachers",
             };
-            for (String sql : drops) {
+            for (String dropSql : drops) {
                 try (Statement stmt = conn.createStatement()) {
-                    stmt.execute(sql);
-                    System.out.println("  已删除: " + sql.substring(18));
+                    stmt.execute(dropSql);
+                    log.info("  已删除: {}", dropSql.substring(18));
                 }
             }
 
             // 2. 按顺序执行三个脚本
             String base = "../../database/";
-            System.out.println("  执行 schema.sql ...");
+            log.info("  执行 schema.sql ...");
             executeSimpleSql(conn, base + "schema.sql");
-            System.out.println("  执行 features.sql ...");
+            log.info("  执行 features.sql ...");
             executeSimpleSql(conn, base + "features.sql");
-            System.out.println("  执行 seed_data.sql ...");
+            log.info("  执行 seed_data.sql ...");
             executeSimpleSql(conn, base + "seed_data.sql");
 
-            System.out.println("========================================");
-            System.out.println("[ResetDatabase] 数据库重置完成！");
-            System.out.println("  请停止应用，去掉 -Dspring-boot.run.profiles=reset 重新启动");
-            System.out.println("========================================");
+            log.info("======== 数据库重置完成，请去掉 -Dspring-boot.run.profiles=reset 重新启动 ========");
         }
     }
 
@@ -80,18 +79,19 @@ public class ResetDatabase implements ApplicationRunner {
         }
         String[] statements = sb.toString().split(";");
         try (Statement stmt = conn.createStatement()) {
-            for (String sql : statements) {
-                String s = sql.trim();
-                if (s.isEmpty()) continue;
-                if (s.toUpperCase().contains("DELIMITER")
-                    || s.toUpperCase().startsWith("CREATE PROCEDURE")
-                    || s.toUpperCase().startsWith("CREATE FUNCTION")) {
+            for (String rawSql : statements) {
+                String trimmedSql = rawSql.trim();
+                if (trimmedSql.isEmpty()) continue;
+                if (trimmedSql.toUpperCase().contains("DELIMITER")
+                    || trimmedSql.toUpperCase().startsWith("CREATE PROCEDURE")
+                    || trimmedSql.toUpperCase().startsWith("CREATE FUNCTION")) {
                     continue;
                 }
                 try {
-                    stmt.execute(s);
-                } catch (Exception e) {
-                    System.out.println("    [跳过] " + e.getMessage().substring(0, Math.min(60, e.getMessage().length())));
+                    stmt.execute(trimmedSql);
+                } catch (Exception ex) {
+                    String detail = ex.getMessage();
+                    log.warn("    [跳过] {}", detail.length() > 60 ? detail.substring(0, 60) : detail);
                 }
             }
         }

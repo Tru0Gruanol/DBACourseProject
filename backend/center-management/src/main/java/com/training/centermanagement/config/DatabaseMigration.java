@@ -1,5 +1,7 @@
 package com.training.centermanagement.config;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -10,11 +12,16 @@ import java.sql.Connection;
 import java.sql.Statement;
 
 /**
- * 启动时自动执行数据库迁移（建表幂等，避免手动执行 SQL 文件）
+ * 启动时自动执行数据库迁移（建表幂等，避免手动执行 SQL 文件）。
+ *
+ * 通过 {@code @Profile("!reset")} 确保与 ResetDatabase 互斥，
+ * 正常启动时自动完成 teacher_subjects 和 notifications 表的结构迁移。
  */
 @Component
 @org.springframework.context.annotation.Profile("!reset")
 public class DatabaseMigration implements ApplicationRunner {
+
+    private static final Logger log = LoggerFactory.getLogger(DatabaseMigration.class);
 
     @Autowired
     private DataSource dataSource;
@@ -34,6 +41,7 @@ public class DatabaseMigration implements ApplicationRunner {
                 "  FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)" +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='教师任教科目关联表'"
             );
+            log.info("已确认 teacher_subjects 表存在");
 
             // 2. 从现有 specialty 字段迁移数据（INSERT IGNORE 保证幂等）
             stmt.execute(
@@ -55,7 +63,7 @@ public class DatabaseMigration implements ApplicationRunner {
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='通知消息表'"
             );
 
-            System.out.println("[DatabaseMigration] 所有迁移完成");
+            log.info("数据库迁移完成（teacher_subjects + notifications）");
         }
     }
 }

@@ -5,9 +5,12 @@ import com.training.centermanagement.entity.Classes;
 import com.training.centermanagement.entity.StudentEnrollment;
 import com.training.centermanagement.entity.Subject;
 import com.training.centermanagement.entity.Teacher;
+import com.training.centermanagement.entity.Student;
+import com.training.centermanagement.entity.Subject;
 import com.training.centermanagement.mapper.AccountMapper;
 import com.training.centermanagement.mapper.ClassesMapper;
 import com.training.centermanagement.mapper.StudentEnrollmentMapper;
+import com.training.centermanagement.mapper.StudentMapper;
 import com.training.centermanagement.mapper.SubjectMapper;
 import com.training.centermanagement.mapper.TeacherMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +20,18 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.*;
 
+/**
+ * 账目与缴费业务服务。
+ *
+ * 核心职责：
+ * <ul>
+ *   <li>缴费（makePayment）：学生总维度校验 → 写入流水 → 更新缓存金额 → 通知管理员</li>
+ *   <li>收费清单（getInvoice）：单班级维度的应缴/已缴/欠费 + 明细</li>
+ *   <li>学生汇总（getStudentSummary）：跨班级的缴费全貌</li>
+ *   <li>催费（getDebtors）：欠费学生列表</li>
+ *   <li>退款（refund）：负向冲销，保留审计轨迹</li>
+ * </ul>
+ */
 @Service
 public class AccountService {
 
@@ -27,15 +42,23 @@ public class AccountService {
     @Autowired
     private StudentEnrollmentMapper studentEnrollmentMapper;
     @Autowired
+    private StudentMapper studentMapper;
+    @Autowired
     private SubjectMapper subjectMapper;
     @Autowired
     private TeacherMapper teacherMapper;
+    @Autowired
+    private NotificationService notificationService;
 
     public List<Account> getAllAccounts() {
         return accountMapper.getAllAccounts();
     }
 
-    // 单独缴费（学生总维度校验：累计缴费不超过全部课程学费之和）
+    /**
+     * 单独缴费（补缴）。
+     * 执行学生总维度校验：累计实缴 + 本次缴费 ≤ 全部在读课程学费之和。
+     * 成功后写入 accounts 流水并同步更新 student_enrollments.amount_paid 缓存。
+     */
     @Transactional(rollbackFor = Exception.class)
     public String makePayment(Integer studentId, String classCode, BigDecimal amount) {
         // 1. 校验报名存在且为在读状态
@@ -79,6 +102,28 @@ public class AccountService {
         if (rows == 0) {
             return "缴费失败：更新选课金额失败！";
         }
+
+        // 7. 通知管理员
+        Student student = studentMapper.selectStudentById(studentId);
+        Subject subject = subjectMapper.getSubjectById(cls.getSubjectId());
+        String studentName = student != null ? student.getStudentName() : String.valueOf(studentId);
+        String subjectName = subject != null ? subject.getSubjectName() : "";
+
+        // 计算本班级是否已结清
+        BigDecimal classPaidBefore = enrollment.getAmountPaid();
+        BigDecimal classPaidAfter = classPaidBefore.add(amount);
+        BigDecimal classRemaining = cls.getFee().subtract(classPaidAfter);
+
+        if (classRemaining.compareTo(BigDecimal.ZERO) <= 0) {
+            notificationService.send(0, "admin",
+                "🎉 缴费结清",
+                studentName + " 已结清 " + classCode + "（" + subjectName + "）全部费用 ¥" + cls.getFee());
+        } else {
+            notificationService.send(0, "admin",
+                "💰 部分缴费",
+                studentName + " 为 " + classCode + "（" + subjectName + "）缴纳 ¥" + amount + "，尚欠 ¥" + classRemaining);
+        }
+
         return "缴费成功！已缴纳 " + amount + " 元。";
     }
 
@@ -175,7 +220,11 @@ public class AccountService {
         return accountMapper.getTotalPaidByStudentAndClass(studentId, classCode);
     }
 
-    // 退款：创建一条负向流水记录
+    /**
+     * 退款：创建一条负向流水记录。
+     * 不会 DELETE 原缴费记录——accounts 表为不可变审计日志，
+     * 通过 SUM(amount_paid) 在任何时间点都可得到正确的净缴费额。
+     */
     @Transactional(rollbackFor = Exception.class)
     public String refund(Integer studentId, String classCode, BigDecimal amount) {
         StudentEnrollment enrollment = studentEnrollmentMapper.selectByStudentAndClass(studentId, classCode);

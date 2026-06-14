@@ -1,6 +1,7 @@
 package com.training.centermanagement.service;
 
 import com.training.centermanagement.entity.Classes;
+import com.training.centermanagement.entity.Notification;
 import com.training.centermanagement.entity.Teacher;
 import com.training.centermanagement.mapper.ClassesMapper;
 import com.training.centermanagement.mapper.TeacherMapper;
@@ -21,6 +22,8 @@ public class TeacherService {
 
     @Autowired
     private TeacherSubjectMapper teacherSubjectMapper;
+    @Autowired
+    private NotificationService notificationService;
 
     public List<Teacher> getAllTeachers() {
         List<Teacher> teachers = teacherMapper.getAllTeachers();
@@ -48,6 +51,10 @@ public class TeacherService {
         if (rows > 0) {
             // 维护教师-科目关联
             saveTeacherSubjects(teacher.getTeacherId(), teacher.getSubjectIds());
+            // 通知教师
+            notificationService.send(teacher.getTeacherId(), "teacher",
+                "👨‍🏫 账号已创建",
+                teacher.getTeacherName() + " 老师，您的教师账号已创建，工号 " + teacher.getTeacherId() + "，初始密码 111111，请及时登录修改密码");
             return "添加成功";
         }
         return "添加失败";
